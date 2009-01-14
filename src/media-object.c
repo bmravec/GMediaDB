@@ -60,6 +60,8 @@ static void media_object_start_element (MediaObject *self, const char *name, con
 static void media_object_end_element (MediaObject *self, const char *name);
 static void media_object_characters (MediaObject *self, const char *chars, int len);
 
+static void media_object_add_entry (TagHandler *th, GHashTable *info, gpointer user_data);
+
 static guint signal_media_added, signal_media_removed;
 
 static void
@@ -165,7 +167,10 @@ media_object_ref (MediaObject *self,
 	if (priv->ref_cnt == 1) {
 		media_object_load_xml (self);
 		priv->ref_cnt = 1;
+		
 		priv->tag_handler = tag_handler_new (self);
+		g_signal_connect (priv->tag_handler, "add-entry",
+			G_CALLBACK (media_object_add_entry), self);
 	}
 
 	return TRUE;
@@ -206,7 +211,7 @@ media_object_get_entries (MediaObject *self,
 	GHashTableIter iter;
 
 	GHashTable *old_entry;
-	guint *id;
+	guint id;
 	
 	gchar *tag_val;
 	
@@ -218,7 +223,12 @@ media_object_get_entries (MediaObject *self,
 
 	int k;
 	for (k = 0; k < ids->len; k++) {
-		old_entry = g_hash_table_lookup (priv->media, &k);
+		id = g_array_index (ids, guint, k);
+		g_print ("Entry for id %d\n", id);
+		old_entry = g_hash_table_lookup (priv->media, &id);
+		
+		if (!old_entry)
+			continue;
 		
 		int i = 0, j = 1;
 		
@@ -290,6 +300,22 @@ media_object_get_all_entries (MediaObject *self,
 	return TRUE;
 }
 
+void
+import_recurse (TagHandler *th, gchar *path) {
+	if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
+		tag_handler_add_entry (th, path);
+	} else if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
+		GDir *dir = g_dir_open (path, 0, NULL);
+		const gchar *entry;
+		while (entry = g_dir_read_name (dir)) {
+			gchar *new_path = g_strdup_printf ("%s/%s", path, entry);
+			import_recurse (th, new_path);
+			g_free (new_path);
+		}
+		g_dir_close (dir);
+	}
+}
+
 gboolean
 media_object_import_path (MediaObject *self,
 						  gchar *path,
@@ -297,9 +323,8 @@ media_object_import_path (MediaObject *self,
 {
 	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
 	printf ("Media_Object_import: %s\n", path);
-	
-	
-	tag_handler_add_entry (priv->tag_handler, path);
+
+	import_recurse (priv->tag_handler, path);
 	
 	return TRUE;
 }
@@ -315,11 +340,7 @@ media_object_remove_entries (MediaObject *self,
 	int i;
 	for (i = 0; i < ids->len; i++) {
 		guint index = g_array_index (ids, guint, i);
-	
-		g_print ("Removing Entry %d\n", index);
-
 		g_signal_emit (self, signal_media_removed, 0, index);
-
 		g_hash_table_remove (priv->media, &index);
 	}
 	
@@ -399,5 +420,24 @@ media_object_characters (MediaObject *self,
 		
 		priv->val = tstr;
 	}
+}
+
+static void
+media_object_add_entry (TagHandler *th,
+						GHashTable *info,
+						gpointer user_data)
+{
+	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (MEDIA_OBJECT (user_data));
+	gint *id;
+
+	id = g_new0 (gint, 1);
+	*id = priv->next_id++;
+	
+	g_hash_table_ref (info);
+	
+	g_hash_table_insert (info, g_strdup ("id"), g_strdup_printf ("%d",*id));
+	g_hash_table_insert (priv->media, id, info);
+	
+	g_signal_emit (G_OBJECT (user_data), signal_media_added, 0, *id);
 }
 

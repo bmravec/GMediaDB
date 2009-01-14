@@ -91,7 +91,8 @@ tag_handler_main (gpointer data)
 		g_hash_table_insert (info, g_strdup ("genre"), g_strdup (taglib_tag_genre (tag)));
 		g_hash_table_insert (info, g_strdup ("year"), g_strdup_printf ("%d",taglib_tag_year (tag))); 
 		g_hash_table_insert (info, g_strdup ("track"), g_strdup_printf ("%d",taglib_tag_track (tag))); 
-	
+		g_hash_table_insert (info, g_strdup ("location"), g_strdup (entry));
+		
 		tag_handler_emit_add_signal (self, info);
 
 		g_hash_table_unref (info);
@@ -138,7 +139,7 @@ tag_handler_class_init (TagHandlerClass *klass)
 	object_class->finalize = tag_handler_finalize;
 	
 	signal_add_entry = g_signal_new ("add-entry", G_TYPE_FROM_CLASS (klass),
-		G_SIGNAL_RUN_LAST, 0, NULL, NULL, &gmediadb_marshal_VOID__POINTER_STRING,
+		G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__BOXED,
 		G_TYPE_NONE, 1, G_TYPE_HASH_TABLE);
 }
 
@@ -170,14 +171,14 @@ tag_handler_emit_add_signal (TagHandler *self, GHashTable *info)
 	gpointer key, value;
 	
 	g_signal_emit (self, signal_add_entry, 0, info);
-	g_print ("---------------------------------------------");
-	g_print ("Add Entry:\n");
+//	g_print ("---------------------------------------------");
+//	g_print ("Add Entry:\n");
 	
-	g_hash_table_iter_init (&iter, info);
-	while (g_hash_table_iter_next (&iter, &key, &value)) {
-		g_print ("%s: %s\n", (gchar*) key, (gchar*) value);
-	}
-	g_print ("---------------------------------------------");
+//	g_hash_table_iter_init (&iter, info);
+//	while (g_hash_table_iter_next (&iter, &key, &value)) {
+//		g_print ("%s: %s\n", (gchar*) key, (gchar*) value);
+//	}
+//	g_print ("---------------------------------------------");
 }
 
 void

@@ -273,6 +273,8 @@ media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
 {
 	MediaObject *mo = (MediaObject*) user_data;
 	
+	g_print ("MediaAdded %d\n", id);
+	
 	GPtrArray *entries;
 	GError *error = NULL;
 	gchar *tags[] = { "location" };
@@ -298,6 +300,8 @@ media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
 	GtkTreeIter iter;
 	for (j = 0; j < entries->len; j++) {
 		gchar **entry = g_ptr_array_index (entries, j);
+		
+		g_print ("Entry0 = %s\t\tEntry1 = %s\n", entry[0], entry[1]);
 		gtk_list_store_append (mo->store, &iter);
 		gtk_list_store_set (mo->store, &iter, 0, atoi (entry[0]), 1, entry[1], -1);
 	}
