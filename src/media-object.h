@@ -1,7 +1,7 @@
 /*
  *      media-object.h
  *      
- *      Copyright 2009 Brett Mravec <bmravec@purdue.edu>
+ *      Copyright 2009 Brett Mravec <brett.mravec@gmail.com>
  *      
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
