@@ -140,7 +140,7 @@ media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
 	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
 
 	priv->gdb = gdb;
-	priv->media_file = g_strdup_printf ("%s/%s.xml", "/home/brett/.gnome2/gmediadb", media_type);
+	priv->media_file = g_strdup_printf ("%s/%s/%s.xml", g_get_home_dir (), ".gnome2/gmediadb", media_type);
 	
 	priv->media_type = g_strdup (media_type);
 	
@@ -318,7 +318,7 @@ media_object_remove_entries (MediaObject *self,
 	
 		g_print ("Removing Entry %d\n", index);
 
-		g_signal_emit (self, signal_media_removed, NULL, index);
+		g_signal_emit (self, signal_media_removed, 0, index);
 
 		g_hash_table_remove (priv->media, &index);
 	}
