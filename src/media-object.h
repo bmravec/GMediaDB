@@ -47,6 +47,9 @@ struct _MediaObject {
 
 struct _MediaObjectClass {
         GObjectClass parent;
+        
+        void (*media_added) (MediaObject *mo, guint ident);
+        void (*media_removed) (MediaObject *mo, guint ident);
 };
 
 MediaObject *media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb);
@@ -54,8 +57,8 @@ GType media_object_get_type (void);
 
 gboolean media_object_ref (MediaObject *self, GError **error);
 gboolean media_object_unref (MediaObject *self, GError **error);
-gboolean media_object_get_entries (MediaObject *self, GArray *ids, GArray *tags, GArray **entries, GError **error);
-gboolean media_object_get_all_entries (MediaObject *self, gchar **tags, GArray **entries, GError **error);
+gboolean media_object_get_entries (MediaObject *self, GArray *ids, gchar **tags, GPtrArray **entries, GError **error);
+gboolean media_object_get_all_entries (MediaObject *self, gchar **tags, GPtrArray **entries, GError **error);
 gboolean media_object_import_path (MediaObject *self, gchar *path, GError **error);
 gboolean media_object_remove_entries (MediaObject *self, GArray *ids, GError **error);
 

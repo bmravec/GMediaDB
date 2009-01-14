@@ -19,11 +19,11 @@
 		<method name="remove_entries">
 			<arg name="ids" type="au" direction="in"/>
 		</method>
-		<signal name="media-added">
-			<arg name="ids" type="au"/>
+		<signal name="media_added">
+			<arg name="ident" type="u"/>
 		</signal>
-		<signal name="media-removed">
-			<arg name="ids" type="au"/>
+		<signal name="media_removed">
+			<arg name="ident" type="u"/>
 		</signal>
 	</interface>
 </node>

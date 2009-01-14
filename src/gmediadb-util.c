@@ -58,9 +58,12 @@ main (int argc, char *argv[])
 	
 	int i;
 	for (i = 0; i < MOS_NUMBER; i++) {
-		g_print ("Creating object: %s\n", mos_names[i]);
 		mos[i].store = gtk_list_store_new (2, G_TYPE_INT, G_TYPE_STRING);
 		mos[i].view = gtk_tree_view_new_with_model (GTK_TREE_MODEL (mos[i].store));
+
+		GtkTreeSelection *sel = gtk_tree_view_get_selection (GTK_TREE_VIEW (mos[i].view));
+		gtk_tree_selection_set_mode (sel, GTK_SELECTION_MULTIPLE);
+
 		mos[i].index = i;
 		
 		GtkCellRenderer *renderer;
@@ -143,8 +146,8 @@ main (int argc, char *argv[])
 
 	g_signal_connect (G_OBJECT (window), "destroy", G_CALLBACK (window_destroy), NULL);
 	g_signal_connect (G_OBJECT (quit_button), "clicked", G_CALLBACK (window_destroy), NULL);
-	g_signal_connect (G_OBJECT (import_button), "clicked", G_CALLBACK (import_clicked), &mos);
-	g_signal_connect (G_OBJECT (remove_button), "clicked", G_CALLBACK (remove_clicked), &mos);
+	g_signal_connect (G_OBJECT (import_button), "clicked", G_CALLBACK (import_clicked), NULL);
+	g_signal_connect (G_OBJECT (remove_button), "clicked", G_CALLBACK (remove_clicked), NULL);
 	
 	gtk_main ();
 	
@@ -205,9 +208,43 @@ import_clicked (GtkWidget *widget, gpointer user_data)
 }
 
 void
+selected_foreach (GtkTreeModel *model,
+				  GtkTreePath *path,
+				  GtkTreeIter *iter,
+				  gpointer data)
+{
+	gint val;
+	gtk_tree_model_get (model, iter, 0, &val, -1);
+	g_array_append_val (data, val);
+}
+
+void
 remove_clicked (GtkWidget *widget, gpointer user_data)
 {
-	g_print ("remove_clicked: stub\n");
+	MediaObject *mo;
+	GError *error = NULL;
+
+	int i;
+	gint pn = gtk_notebook_get_current_page (GTK_NOTEBOOK (notebook));
+	for (i = 0; i < MOS_NUMBER; i++)
+		if (mos[i].page_number == pn)
+			mo = &mos[i];
+	
+	GArray *ids = g_array_new (TRUE, TRUE, sizeof (guint));
+	GtkTreeSelection *sel = gtk_tree_view_get_selection (GTK_TREE_VIEW (mo->view));
+	gtk_tree_selection_selected_foreach (sel, selected_foreach, ids);
+
+	if (!dbus_g_proxy_call (mo->proxy, "remove_entries", &error,
+			DBUS_TYPE_G_UINT_ARRAY, ids, G_TYPE_INVALID, G_TYPE_INVALID)) {
+		if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_REMOTE_EXCEPTION)
+			g_printerr ("Caught remote method exception %s: %s",
+				dbus_g_error_get_name (error), error->message);
+		else
+			g_printerr ("Error: %s\n", error->message);
+		g_error_free (error);
+	}
+	
+	g_array_free (ids, TRUE);
 }
 
 void

@@ -60,7 +60,7 @@ static void media_object_start_element (MediaObject *self, const char *name, con
 static void media_object_end_element (MediaObject *self, const char *name);
 static void media_object_characters (MediaObject *self, const char *chars, int len);
 
-static gint signal_media_added, signal_media_removed;
+static guint signal_media_added, signal_media_removed;
 
 static void
 media_object_load_xml (MediaObject *self)
@@ -109,13 +109,15 @@ media_object_class_init (MediaObjectClass *klass)
 	g_type_class_add_private ((gpointer) klass, sizeof (MediaObjectPrivate));
 
 	object_class->finalize = media_object_finalize;
-	
-	signal_media_added = g_signal_new ("media-added", G_TYPE_FROM_CLASS (klass),
-		G_SIGNAL_RUN_LAST, 0, NULL, NULL, &g_cclosure_marshal_VOID__UINT,
+
+	signal_media_added = g_signal_new ("media_added", G_TYPE_FROM_CLASS (klass),
+		G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
+		NULL, NULL, g_cclosure_marshal_VOID__UINT,
 		G_TYPE_NONE, 1, G_TYPE_UINT);
 
-	signal_media_removed = g_signal_new ("media-removed", G_TYPE_FROM_CLASS (klass),
-		G_SIGNAL_RUN_LAST, 0, NULL, NULL, &g_cclosure_marshal_VOID__UINT,
+	signal_media_removed = g_signal_new ("media_removed", G_TYPE_FROM_CLASS (klass),
+		G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_removed),
+		NULL, NULL, g_cclosure_marshal_VOID__UINT,
 		G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
@@ -194,11 +196,49 @@ media_object_unref (MediaObject *self,
 gboolean
 media_object_get_entries (MediaObject *self,
 						  GArray *ids,
-						  GArray *tags,
-						  GArray **entries,
+						  gchar **tags,
+						  GPtrArray **entries,
 						  GError **error)
 {
 	printf ("Media_Object_get_entries\n");
+	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+
+	GHashTableIter iter;
+
+	GHashTable *old_entry;
+	guint *id;
+	
+	gchar *tag_val;
+	
+	*entries = g_ptr_array_new ();
+	gchar **ret_entry;
+
+	gint tag_len = 2;
+	while (tags[tag_len]) tag_len++;
+
+	int k;
+	for (k = 0; k < ids->len; k++) {
+		old_entry = g_hash_table_lookup (priv->media, &k);
+		
+		int i = 0, j = 1;
+		
+		ret_entry = g_new0 (gchar*, tag_len+1);
+		ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
+		
+		while (tags[i]) {
+			tag_val = g_hash_table_lookup (old_entry, tags[i]);
+
+			if (tag_val != NULL)
+				ret_entry[j] = g_strdup (tag_val);
+			else
+				ret_entry[j] = g_strdup ("");
+			
+			j++;
+			i++;
+		}
+		
+		g_ptr_array_add (*entries, ret_entry);
+	}
 
 	return TRUE;
 }
@@ -206,7 +246,7 @@ media_object_get_entries (MediaObject *self,
 gboolean
 media_object_get_all_entries (MediaObject *self,
 							  gchar **tags,
-							  GArray **entries,
+							  GPtrArray **entries,
 							  GError **error)
 {
 	printf ("Media_Object_get_all_entries\n");
@@ -264,12 +304,6 @@ media_object_import_path (MediaObject *self,
 	return TRUE;
 }
 
-void
-entry_foreach (gchar *key, gchar *val, gpointer user_data)
-{
-	printf ("%s: %s\n", key, val);
-}
-
 gboolean
 media_object_remove_entries (MediaObject *self,
 							 GArray *ids,
@@ -281,13 +315,12 @@ media_object_remove_entries (MediaObject *self,
 	int i;
 	for (i = 0; i < ids->len; i++) {
 		guint index = g_array_index (ids, guint, i);
+	
+		g_print ("Removing Entry %d\n", index);
 
-		printf ("Entry: %d\n", index);
-		GHashTable *entry = g_hash_table_lookup (priv->media, &index);
-		if (entry) {
-			g_hash_table_foreach (entry, entry_foreach, NULL);
-		}
-		printf ("-----------------\n");
+		g_signal_emit (self, signal_media_removed, NULL, index);
+
+		g_hash_table_remove (priv->media, &index);
 	}
 	
 	return TRUE;
