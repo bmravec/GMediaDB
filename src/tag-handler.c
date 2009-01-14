@@ -48,7 +48,6 @@ tag_handler_main (gpointer data)
 {
 	TagHandler *self = TAG_HANDLER (data);
 	TagHandlerPrivate *priv = TAG_HANDLER_GET_PRIVATE (self);
-	GAsyncQueue *queue = priv->job_queue;
 	
 	const TagLib_AudioProperties *properties;
 	TagLib_File *file;
@@ -80,6 +79,8 @@ tag_handler_main (gpointer data)
 		info = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
 		
 		file = taglib_file_new(entry);
+		if (!file) continue;
+		
 		tag = taglib_file_tag(file);
 		properties = taglib_file_audioproperties(file);
 		
@@ -168,7 +169,7 @@ tag_handler_emit_add_signal (TagHandler *self, GHashTable *info)
 	GHashTableIter iter;
 	gpointer key, value;
 	
-//	g_signal_emit (self, signal_add_entry, 0, info);
+	g_signal_emit (self, signal_add_entry, 0, info);
 	g_print ("---------------------------------------------");
 	g_print ("Add Entry:\n");
 	
@@ -186,3 +187,4 @@ tag_handler_add_entry (TagHandler *self, gchar *location)
 	
 	g_async_queue_push (priv->job_queue, g_strdup (location));
 }
+

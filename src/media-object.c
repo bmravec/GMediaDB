@@ -60,6 +60,8 @@ static void media_object_start_element (MediaObject *self, const char *name, con
 static void media_object_end_element (MediaObject *self, const char *name);
 static void media_object_characters (MediaObject *self, const char *chars, int len);
 
+static gint signal_media_added, signal_media_removed;
+
 static void
 media_object_load_xml (MediaObject *self)
 {
@@ -107,6 +109,14 @@ media_object_class_init (MediaObjectClass *klass)
 	g_type_class_add_private ((gpointer) klass, sizeof (MediaObjectPrivate));
 
 	object_class->finalize = media_object_finalize;
+	
+	signal_media_added = g_signal_new ("media-added", G_TYPE_FROM_CLASS (klass),
+		G_SIGNAL_RUN_LAST, 0, NULL, NULL, &g_cclosure_marshal_VOID__UINT,
+		G_TYPE_NONE, 1, G_TYPE_UINT);
+
+	signal_media_removed = g_signal_new ("media-removed", G_TYPE_FROM_CLASS (klass),
+		G_SIGNAL_RUN_LAST, 0, NULL, NULL, &g_cclosure_marshal_VOID__UINT,
+		G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
 									 &dbus_glib_media_object_object_info);
@@ -242,11 +252,12 @@ media_object_get_all_entries (MediaObject *self,
 
 gboolean
 media_object_import_path (MediaObject *self,
-					 gchar *path,
-					 GError **error)
+						  gchar *path,
+						  GError **error)
 {
 	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	printf ("Media_Object_import\n");
+	printf ("Media_Object_import: %s\n", path);
+	
 	
 	tag_handler_add_entry (priv->tag_handler, path);
 	

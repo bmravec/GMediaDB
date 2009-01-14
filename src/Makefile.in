@@ -55,7 +55,8 @@ am__DEPENDENCIES_1 =
 gmediadb_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_gmediadb_util_OBJECTS = gmediadb-util.$(OBJEXT)
 gmediadb_util_OBJECTS = $(am_gmediadb_util_OBJECTS)
-gmediadb_util_DEPENDENCIES = $(am__DEPENDENCIES_1)
+gmediadb_util_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I. -I$(srcdir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -100,6 +101,8 @@ EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GLIB_GENMARSHAL = @GLIB_GENMARSHAL@
 GREP = @GREP@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_LIBS = @GTK_LIBS@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -179,7 +182,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-INCLUDES = $(PROG_CFLAGS)
+INCLUDES = $(PROG_CFLAGS) $(GTK_CFLAGS) -g
 BUILT_SOURCES = \
 	media-object-glue.h \
 	gmediadb-marshal.c \
@@ -193,7 +196,7 @@ gmediadb_SOURCES = \
 
 gmediadb_LDADD = $(PROG_LIBS)
 gmediadb_util_SOURCES = gmediadb-util.c
-gmediadb_util_LDADD = $(PROG_LIBS)
+gmediadb_util_LDADD = $(PROG_LIBS) $(GTK_LIBS)
 EXTRA_DIST = \
 	gmediadb-marshal.list \
 	media-object.xml

@@ -1,4 +1,4 @@
-INCLUDES = $(PROG_CFLAGS)
+INCLUDES = $(PROG_CFLAGS) $(GTK_CFLAGS) -g
 
 gmediadb-marshal.c: gmediadb-marshal.list
 	$(GLIB_GENMARSHAL) --prefix=gmediadb_marshal gmediadb-marshal.list --body > gmediadb-marshal.c
@@ -25,7 +25,7 @@ gmediadb_SOURCES = \
 gmediadb_LDADD = $(PROG_LIBS)
 
 gmediadb_util_SOURCES = gmediadb-util.c
-gmediadb_util_LDADD = $(PROG_LIBS)
+gmediadb_util_LDADD = $(PROG_LIBS) $(GTK_LIBS)
 
 EXTRA_DIST = \
 	gmediadb-marshal.list \
