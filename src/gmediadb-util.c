@@ -301,7 +301,6 @@ media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
 	for (j = 0; j < entries->len; j++) {
 		gchar **entry = g_ptr_array_index (entries, j);
 		
-		g_print ("Entry0 = %s\t\tEntry1 = %s\n", entry[0], entry[1]);
 		gtk_list_store_append (mo->store, &iter);
 		gtk_list_store_set (mo->store, &iter, 0, atoi (entry[0]), 1, entry[1], -1);
 	}

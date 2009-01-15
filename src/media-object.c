@@ -25,6 +25,7 @@
 #include "tag-handler.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <libxml/parser.h>
 
 G_DEFINE_TYPE(MediaObject, media_object, G_TYPE_OBJECT)
@@ -59,42 +60,11 @@ struct _MediaObjectPrivate {
 static void media_object_start_element (MediaObject *self, const char *name, const char **attrs);
 static void media_object_end_element (MediaObject *self, const char *name);
 static void media_object_characters (MediaObject *self, const char *chars, int len);
-
 static void media_object_add_entry (TagHandler *th, GHashTable *info, gpointer user_data);
+static void media_object_load_xml (MediaObject *self);
+static void media_object_save_xml (MediaObject *self);
 
 static guint signal_media_added, signal_media_removed;
-
-static void
-media_object_load_xml (MediaObject *self)
-{
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	
-	if (priv->media != NULL) {
-		g_hash_table_unref (priv->media);
-	}
-	
-	priv->media = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, g_hash_table_unref);
-	
-	priv->sax = g_new0 (xmlSAXHandler, 1);
-	
-	priv->sax->startElement = (startElementSAXFunc) media_object_start_element;
-	priv->sax->endElement = (endElementSAXFunc) media_object_end_element;
-	priv->sax->characters = (charactersSAXFunc) media_object_characters;
-
-	priv->state = LOADER_START;
-	priv->key = NULL;
-	priv->val = NULL;
-	priv->entry = NULL;
-	
-	if (!g_file_test (priv->media_file, G_FILE_TEST_EXISTS))
-		return;
-	
-	printf ("Parsing XML in file %s\n", priv->media_file);
-	xmlSAXUserParseFile (priv->sax, self, priv->media_file);
-		
-	g_free (priv->sax);
-	priv->sax = NULL;
-}
 
 static void
 media_object_finalize (GObject *object)
@@ -191,7 +161,8 @@ media_object_unref (MediaObject *self,
 		g_object_unref (G_OBJECT (priv->tag_handler));
 		priv->tag_handler = NULL;
 
-		printf ("MediaObject<%s> write to disk\n", priv->media_type);
+//		printf ("MediaObject<%s> write to disk\n", priv->media_type);
+		media_object_save_xml (self);
 	}
 	
 	gmedia_db_unref (priv->gdb);
@@ -278,7 +249,7 @@ media_object_get_all_entries (MediaObject *self,
 	g_hash_table_iter_init (&iter, priv->media);
 	while (g_hash_table_iter_next (&iter, &id, &old_entry)) {
 		int i = 0, j = 1;
-		
+		g_print ("%d ", *id);
 		ret_entry = g_new0 (gchar*, tag_len+1);
 		ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
 		
@@ -296,7 +267,8 @@ media_object_get_all_entries (MediaObject *self,
 		
 		g_ptr_array_add (*entries, ret_entry);
 	}
-
+	g_print ("\n");
+	
 	return TRUE;
 }
 
@@ -439,5 +411,74 @@ media_object_add_entry (TagHandler *th,
 	g_hash_table_insert (priv->media, id, info);
 	
 	g_signal_emit (G_OBJECT (user_data), signal_media_added, 0, *id);
+}
+
+static void
+media_object_load_xml (MediaObject *self)
+{
+	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+	
+	if (priv->media != NULL) {
+		g_hash_table_unref (priv->media);
+	}
+	
+	priv->media = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, g_hash_table_unref);
+	
+	priv->sax = g_new0 (xmlSAXHandler, 1);
+	
+	priv->sax->startElement = (startElementSAXFunc) media_object_start_element;
+	priv->sax->endElement = (endElementSAXFunc) media_object_end_element;
+	priv->sax->characters = (charactersSAXFunc) media_object_characters;
+
+	priv->state = LOADER_START;
+	priv->key = NULL;
+	priv->val = NULL;
+	priv->entry = NULL;
+	
+	if (!g_file_test (priv->media_file, G_FILE_TEST_EXISTS))
+		return;
+	
+	printf ("Parsing XML in file %s\n", priv->media_file);
+	xmlSAXUserParseFile (priv->sax, self, priv->media_file);
+		
+	g_free (priv->sax);
+	priv->sax = NULL;
+}
+
+static void
+media_object_save_xml (MediaObject *self)
+{
+	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+	GHashTableIter iter, iter2;
+	GHashTable *entry;
+	guint *id;
+	gchar *key, *value;
+
+	g_print ("Saving XML in file %s\n", priv->media_file);
+	
+	FILE *fptr = fopen (priv->media_file, "w");
+	gchar *str = g_strdup_printf ("<GMediaDB version=\'1.0\' media_type=\'%s\'>\n", priv->media_type);
+	fwrite (str, 1, strlen (str), fptr);
+	g_free (str);
+
+	g_hash_table_iter_init (&iter, priv->media);
+	while (g_hash_table_iter_next (&iter, &id, &entry)) {
+		g_hash_table_iter_init (&iter2, entry);
+		fwrite ("\t<entry>\n", 1, 9, fptr);
+		while (g_hash_table_iter_next (&iter2, &key, &value)) {
+			if (!strcmp (key, "id"))
+				continue;
+				
+			str = g_markup_printf_escaped ("\t\t<%s>%s</%s>\n", key, value, key);
+			fwrite (str, 1, strlen (str), fptr);
+			g_free (str);
+		}
+		fwrite ("\t</entry>\n", 1, 10, fptr);
+	}
+
+	fwrite ("</GMediaDB>", 1, 11, fptr);
+
+	fclose (fptr);
+
 }
 
