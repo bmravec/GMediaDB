@@ -1,30 +1,34 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <node name="/org/gnome/GMediaDB">
-	<interface name="org.gnome.GMediaDB.MediaObject">
-		<annotation name="org.freedesktop.DBus.GLib.CSymbol" value="media_object"/>
-		<method name="ref"/>
-		<method name="unref"/>
-		<method name="get_entries">
-			<arg name="ids" type="au" direction="in"/>
-			<arg name="tags" type="as" direction="in"/>
-			<arg name="entries" type="aas" direction="out"/>
-		</method>
-		<method name="get_all_entries">
-			<arg name="tags" type="as" direction="in"/>
-			<arg name="entries" type="aas" direction="out"/>
-		</method>
-		<method name="import_path">
-			<arg name="path" type="s" direction="in"/>
-		</method>
-		<method name="remove_entries">
-			<arg name="ids" type="au" direction="in"/>
-		</method>
-		<signal name="media_added">
-			<arg name="ident" type="u"/>
-		</signal>
-		<signal name="media_removed">
-			<arg name="ident" type="u"/>
-		</signal>
-	</interface>
+    <interface name="org.gnome.GMediaDB.MediaObject">
+        <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="media_object"/>
+        <method name="ref"/>
+        <method name="unref"/>
+        <method name="get_entries">
+            <arg name="ids" type="au" direction="in"/>
+            <arg name="tags" type="as" direction="in"/>
+            <arg name="entries" type="aas" direction="out"/>
+        </method>
+        <method name="get_all_entries">
+            <arg name="tags" type="as" direction="in"/>
+            <arg name="entries" type="aas" direction="out"/>
+        </method>
+        <method name="get_entry_tags">
+            <arg name="id" type="u" direction="in"/>
+            <arg name="tags" type="as" direction="out"/>
+        </method>
+        <method name="import_path">
+            <arg name="path" type="s" direction="in"/>
+        </method>
+        <method name="remove_entries">
+            <arg name="ids" type="au" direction="in"/>
+        </method>
+        <signal name="media_added">
+            <arg name="ident" type="u"/>
+        </signal>
+        <signal name="media_removed">
+            <arg name="ident" type="u"/>
+        </signal>
+    </interface>
 </node>
 

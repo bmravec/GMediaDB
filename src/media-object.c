@@ -35,26 +35,26 @@ typedef struct _MediaObjectPrivate MediaObjectPrivate;
 #define MEDIA_OBJECT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), MEDIA_OBJECT_TYPE, MediaObjectPrivate))
 
 typedef enum {
-	LOADER_START = 0,
-	LOADER_GET_DB,
-	LOADER_GET_ENTRY,
-	LOADER_GET_TAG
+    LOADER_START = 0,
+    LOADER_GET_DB,
+    LOADER_GET_ENTRY,
+    LOADER_GET_TAG
 } LoaderState;
 
 struct _MediaObjectPrivate {
-	gchar *media_type;
-	gchar *media_file;
-	GMediaDB *gdb;
-	GHashTable *media;
-	guint next_id;
-	gint ref_cnt;
-	TagHandler *tag_handler;
+    gchar *media_type;
+    gchar *media_file;
+    GMediaDB *gdb;
+    GHashTable *media;
+    guint next_id;
+    gint ref_cnt;
+    TagHandler *tag_handler;
 
-	// XML Parser Data
-	xmlSAXHandlerPtr sax;
-	GHashTable *entry;
-	LoaderState state;
-	gchar *key, *val;
+    // XML Parser Data
+    xmlSAXHandlerPtr sax;
+    GHashTable *entry;
+    LoaderState state;
+    gchar *key, *val;
 };
 
 static void media_object_start_element (MediaObject *self, const char *name, const char **attrs);
@@ -69,416 +69,449 @@ static guint signal_media_added, signal_media_removed;
 static void
 media_object_finalize (GObject *object)
 {
-	G_OBJECT_CLASS (media_object_parent_class)->finalize (object);
+    G_OBJECT_CLASS (media_object_parent_class)->finalize (object);
 }
 
 static void
 media_object_class_init (MediaObjectClass *klass)
 {
-	GObjectClass *object_class;
-	object_class = G_OBJECT_CLASS (klass);
+    GObjectClass *object_class;
+    object_class = G_OBJECT_CLASS (klass);
 
-	g_type_class_add_private ((gpointer) klass, sizeof (MediaObjectPrivate));
+    g_type_class_add_private ((gpointer) klass, sizeof (MediaObjectPrivate));
 
-	object_class->finalize = media_object_finalize;
+    object_class->finalize = media_object_finalize;
 
-	signal_media_added = g_signal_new ("media_added", G_TYPE_FROM_CLASS (klass),
-		G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
-		NULL, NULL, g_cclosure_marshal_VOID__UINT,
-		G_TYPE_NONE, 1, G_TYPE_UINT);
+    signal_media_added = g_signal_new ("media_added", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
+        NULL, NULL, g_cclosure_marshal_VOID__UINT,
+        G_TYPE_NONE, 1, G_TYPE_UINT);
 
-	signal_media_removed = g_signal_new ("media_removed", G_TYPE_FROM_CLASS (klass),
-		G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_removed),
-		NULL, NULL, g_cclosure_marshal_VOID__UINT,
-		G_TYPE_NONE, 1, G_TYPE_UINT);
+    signal_media_removed = g_signal_new ("media_removed", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_removed),
+        NULL, NULL, g_cclosure_marshal_VOID__UINT,
+        G_TYPE_NONE, 1, G_TYPE_UINT);
 
-	dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
-									 &dbus_glib_media_object_object_info);
+    dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
+                                     &dbus_glib_media_object_object_info);
 }
 
 static void
 media_object_init (MediaObject *object)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
-	
-	priv->next_id = 1;
-	priv->ref_cnt = 0;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
+    
+    priv->next_id = 1;
+    priv->ref_cnt = 0;
 }
 
 MediaObject *
 media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
 {
-	MediaObject *object = g_object_new (MEDIA_OBJECT_TYPE, NULL);
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
+    MediaObject *object = g_object_new (MEDIA_OBJECT_TYPE, NULL);
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
 
-	priv->gdb = gdb;
-	priv->media_file = g_strdup_printf ("%s/%s/%s.xml", g_get_home_dir (), ".gnome2/gmediadb", media_type);
-	
-	priv->media_type = g_strdup (media_type);
-	
-	gchar *path = g_strdup_printf ("%s/%s", GMEDIADB_DBUS_PATH, media_type);
-	dbus_g_connection_register_g_object (conn, path, object);
-	g_free (path);
+    priv->gdb = gdb;
+    priv->media_file = g_strdup_printf ("%s/%s/%s.xml", g_get_home_dir (), ".gnome2/gmediadb", media_type);
+    
+    priv->media_type = g_strdup (media_type);
+    
+    gchar *path = g_strdup_printf ("%s/%s", GMEDIADB_DBUS_PATH, media_type);
+    dbus_g_connection_register_g_object (conn, path, object);
+    g_free (path);
 
-	return object;
+    return object;
 }
 
 gboolean
 media_object_ref (MediaObject *self,
-				  GError **error)
+                  GError **error)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	printf ("Media_Object_ref\n");
-	
-	gmedia_db_ref (priv->gdb);
-	
-	priv->ref_cnt += 1;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("Media_Object_ref\n");
+    
+    gmedia_db_ref (priv->gdb);
+    
+    priv->ref_cnt += 1;
 
-	if (priv->ref_cnt == 1) {
-		media_object_load_xml (self);
-		priv->ref_cnt = 1;
-		
-		priv->tag_handler = tag_handler_new (self);
-		g_signal_connect (priv->tag_handler, "add-entry",
-			G_CALLBACK (media_object_add_entry), self);
-	}
+    if (priv->ref_cnt == 1) {
+        media_object_load_xml (self);
+        priv->ref_cnt = 1;
+        
+        priv->tag_handler = tag_handler_new (self);
+        g_signal_connect (priv->tag_handler, "add-entry",
+            G_CALLBACK (media_object_add_entry), self);
+    }
 
-	return TRUE;
+    return TRUE;
 }
 
 gboolean
 media_object_unref (MediaObject *self,
-					GError **error)
+                    GError **error)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	printf ("Media_Object_unref (%d)\n", priv->ref_cnt);
-	
-	priv->ref_cnt--;
-	
-	if (priv->ref_cnt <= 0) {
-		priv->ref_cnt = 0;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("Media_Object_unref (%d)\n", priv->ref_cnt);
+    
+    priv->ref_cnt--;
+    
+    if (priv->ref_cnt <= 0) {
+        priv->ref_cnt = 0;
 
-		g_object_unref (G_OBJECT (priv->tag_handler));
-		priv->tag_handler = NULL;
+        g_object_unref (G_OBJECT (priv->tag_handler));
+        priv->tag_handler = NULL;
 
-//		printf ("MediaObject<%s> write to disk\n", priv->media_type);
-		media_object_save_xml (self);
-	}
-	
-	gmedia_db_unref (priv->gdb);
-	return TRUE;
+//        printf ("MediaObject<%s> write to disk\n", priv->media_type);
+        media_object_save_xml (self);
+    }
+    
+    gmedia_db_unref (priv->gdb);
+    return TRUE;
 }
 
 gboolean
 media_object_get_entries (MediaObject *self,
-						  GArray *ids,
-						  gchar **tags,
-						  GPtrArray **entries,
-						  GError **error)
+                          GArray *ids,
+                          gchar **tags,
+                          GPtrArray **entries,
+                          GError **error)
 {
-	printf ("Media_Object_get_entries\n");
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("Media_Object_get_entries\n");
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
 
-	GHashTableIter iter;
+    GHashTableIter iter;
 
-	GHashTable *old_entry;
-	guint id;
-	
-	gchar *tag_val;
-	
-	*entries = g_ptr_array_new ();
-	gchar **ret_entry;
+    GHashTable *old_entry;
+    guint id;
+    
+    gchar *tag_val;
+    
+    *entries = g_ptr_array_new ();
+    gchar **ret_entry;
 
-	gint tag_len = 2;
-	while (tags[tag_len]) tag_len++;
+    gint tag_len = 2;
+    while (tags[tag_len]) tag_len++;
 
-	int k;
-	for (k = 0; k < ids->len; k++) {
-		id = g_array_index (ids, guint, k);
-		g_print ("Entry for id %d\n", id);
-		old_entry = g_hash_table_lookup (priv->media, &id);
-		
-		if (!old_entry)
-			continue;
-		
-		int i = 0, j = 1;
-		
-		ret_entry = g_new0 (gchar*, tag_len+1);
-		ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
-		
-		while (tags[i]) {
-			tag_val = g_hash_table_lookup (old_entry, tags[i]);
+    int k;
+    for (k = 0; k < ids->len; k++) {
+        id = g_array_index (ids, guint, k);
+        g_print ("Entry for id %d\n", id);
+        old_entry = g_hash_table_lookup (priv->media, &id);
+        
+        if (!old_entry)
+            continue;
+        
+        int i = 0, j = 1;
+        
+        ret_entry = g_new0 (gchar*, tag_len+1);
+        ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
+        
+        while (tags[i]) {
+            tag_val = g_hash_table_lookup (old_entry, tags[i]);
 
-			if (tag_val != NULL)
-				ret_entry[j] = g_strdup (tag_val);
-			else
-				ret_entry[j] = g_strdup ("");
-			
-			j++;
-			i++;
-		}
-		
-		g_ptr_array_add (*entries, ret_entry);
-	}
+            if (tag_val != NULL)
+                ret_entry[j] = g_strdup (tag_val);
+            else
+                ret_entry[j] = g_strdup ("");
+            
+            j++;
+            i++;
+        }
+        
+        g_ptr_array_add (*entries, ret_entry);
+    }
 
-	return TRUE;
+    return TRUE;
+}
+
+gboolean
+media_object_get_entry_tags (MediaObject *self,
+                             gint id,
+                             gchar ***tags,
+                             GError **error)
+{
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    
+    GHashTable *entry = g_hash_table_lookup (priv->media, &id);
+    gchar **ret_tags;
+    
+    gint i = g_hash_table_size (entry);
+//    *tags = g_new0 (gchar*, i+1);
+    g_print ("ID: %d\n", id);
+    g_print ("Number of Keys: %d\n", i);
+    
+    ret_tags = (gchar**) g_malloc ((i+1) * sizeof (gchar*));
+    ret_tags[i] = NULL;
+    
+    GHashTableIter iter;
+    gpointer key;
+    
+    i = 0;
+    g_hash_table_iter_init (&iter, entry);
+    while (g_hash_table_iter_next (&iter, &key, NULL)) {
+        ret_tags[i++] = g_strdup ((gchar*) key);
+    }
+    
+    *tags = ret_tags;
+    
+    return TRUE;
 }
 
 gboolean
 media_object_get_all_entries (MediaObject *self,
-							  gchar **tags,
-							  GPtrArray **entries,
-							  GError **error)
+                              gchar **tags,
+                              GPtrArray **entries,
+                              GError **error)
 {
-	printf ("Media_Object_get_all_entries\n");
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("Media_Object_get_all_entries\n");
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
 
-	GHashTableIter iter;
+    GHashTableIter iter;
 
-	GHashTable *old_entry;
-	guint *id;
-	
-	gchar *tag_val;
-	
-	*entries = g_ptr_array_new ();
-	gchar **ret_entry;
+    GHashTable *old_entry;
+    guint *id;
+    
+    gchar *tag_val;
+    
+    *entries = g_ptr_array_new ();
+    gchar **ret_entry;
 
-	gint tag_len = 2;
-	while (tags[tag_len]) tag_len++;
-	
-	g_hash_table_iter_init (&iter, priv->media);
-	while (g_hash_table_iter_next (&iter, &id, &old_entry)) {
-		int i = 0, j = 1;
-		g_print ("%d ", *id);
-		ret_entry = g_new0 (gchar*, tag_len+1);
-		ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
-		
-		while (tags[i]) {
-			tag_val = g_hash_table_lookup (old_entry, tags[i]);
+    gint tag_len = 2;
+    while (tags[tag_len]) tag_len++;
+    
+    g_hash_table_iter_init (&iter, priv->media);
+    while (g_hash_table_iter_next (&iter, &id, &old_entry)) {
+        int i = 0, j = 1;
+        g_print ("%d ", *id);
+        ret_entry = g_new0 (gchar*, tag_len+1);
+        ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
+        
+        while (tags[i]) {
+            tag_val = g_hash_table_lookup (old_entry, tags[i]);
 
-			if (tag_val != NULL)
-				ret_entry[j] = g_strdup (tag_val);
-			else
-				ret_entry[j] = g_strdup ("");
-			
-			j++;
-			i++;
-		}
-		
-		g_ptr_array_add (*entries, ret_entry);
-	}
-	g_print ("\n");
-	
-	return TRUE;
+            if (tag_val != NULL)
+                ret_entry[j] = g_strdup (tag_val);
+            else
+                ret_entry[j] = g_strdup ("");
+            
+            j++;
+            i++;
+        }
+        
+        g_ptr_array_add (*entries, ret_entry);
+    }
+    g_print ("\n");
+    
+    return TRUE;
 }
 
 void
 import_recurse (TagHandler *th, gchar *path) {
-	if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
-		tag_handler_add_entry (th, path);
-	} else if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
-		GDir *dir = g_dir_open (path, 0, NULL);
-		const gchar *entry;
-		while (entry = g_dir_read_name (dir)) {
-			gchar *new_path = g_strdup_printf ("%s/%s", path, entry);
-			import_recurse (th, new_path);
-			g_free (new_path);
-		}
-		g_dir_close (dir);
-	}
+    if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
+        tag_handler_add_entry (th, path);
+    } else if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
+        GDir *dir = g_dir_open (path, 0, NULL);
+        const gchar *entry;
+        while (entry = g_dir_read_name (dir)) {
+            gchar *new_path = g_strdup_printf ("%s/%s", path, entry);
+            import_recurse (th, new_path);
+            g_free (new_path);
+        }
+        g_dir_close (dir);
+    }
 }
 
 gboolean
 media_object_import_path (MediaObject *self,
-						  gchar *path,
-						  GError **error)
+                          gchar *path,
+                          GError **error)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	printf ("Media_Object_import: %s\n", path);
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("Media_Object_import: %s\n", path);
 
-	import_recurse (priv->tag_handler, path);
-	
-	return TRUE;
+    import_recurse (priv->tag_handler, path);
+    
+    return TRUE;
 }
 
 gboolean
 media_object_remove_entries (MediaObject *self,
-							 GArray *ids,
-							 GError **error)
+                             GArray *ids,
+                             GError **error)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	printf ("media_object_remove_entries\n");
-	
-	int i;
-	for (i = 0; i < ids->len; i++) {
-		guint index = g_array_index (ids, guint, i);
-		g_signal_emit (self, signal_media_removed, 0, index);
-		g_hash_table_remove (priv->media, &index);
-	}
-	
-	return TRUE;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    printf ("media_object_remove_entries\n");
+    
+    int i;
+    for (i = 0; i < ids->len; i++) {
+        guint index = g_array_index (ids, guint, i);
+        g_signal_emit (self, signal_media_removed, 0, index);
+        g_hash_table_remove (priv->media, &index);
+    }
+    
+    return TRUE;
 }
 
 static void
 media_object_start_element (MediaObject *self,
-							const char *name,
-							const char **attrs)
+                            const char *name,
+                            const char **attrs)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	
-	switch (priv->state) {
-		case LOADER_START:
-			priv->state = LOADER_GET_DB;
-			break;
-		case LOADER_GET_DB:
-			priv->entry = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
-			priv->state = LOADER_GET_ENTRY;
-			break;
-		case LOADER_GET_ENTRY:
-			priv->key = g_strdup (name);
-			priv->state = LOADER_GET_TAG;
-			priv->val = g_strdup ("");
-			break;
-		case LOADER_GET_TAG:
-			break;
-	};
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    
+    switch (priv->state) {
+        case LOADER_START:
+            priv->state = LOADER_GET_DB;
+            break;
+        case LOADER_GET_DB:
+            priv->entry = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+            priv->state = LOADER_GET_ENTRY;
+            break;
+        case LOADER_GET_ENTRY:
+            priv->key = g_strdup (name);
+            priv->state = LOADER_GET_TAG;
+            priv->val = g_strdup ("");
+            break;
+        case LOADER_GET_TAG:
+            break;
+    };
 }
 
 static void
 media_object_end_element (MediaObject *self,
-						  const char *name)
+                          const char *name)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	gint *id;
-		
-	switch (priv->state) {
-		case LOADER_GET_DB:
-			priv->state = LOADER_START;
-			break;
-		case LOADER_GET_ENTRY:
-			id = g_new0 (gint, 1);
-			*id = priv->next_id++;
-			
-			g_hash_table_insert (priv->entry, g_strdup ("id"), g_strdup_printf ("%d",*id));
-			g_hash_table_insert (priv->media, id, priv->entry);
-			priv->entry = NULL;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    gint *id;
+        
+    switch (priv->state) {
+        case LOADER_GET_DB:
+            priv->state = LOADER_START;
+            break;
+        case LOADER_GET_ENTRY:
+            id = g_new0 (gint, 1);
+            *id = priv->next_id++;
+            
+            g_hash_table_insert (priv->entry, g_strdup ("id"), g_strdup_printf ("%d",*id));
+            g_hash_table_insert (priv->media, id, priv->entry);
+            priv->entry = NULL;
 
-			priv->state = LOADER_GET_DB;
-			break;
-		case LOADER_GET_TAG:
-			g_hash_table_insert (priv->entry, priv->key, priv->val);
+            priv->state = LOADER_GET_DB;
+            break;
+        case LOADER_GET_TAG:
+            g_hash_table_insert (priv->entry, priv->key, priv->val);
 
-			priv->key = NULL;
-			priv->val = NULL;
-			
-			priv->state = LOADER_GET_ENTRY;
-			break;
-	};
+            priv->key = NULL;
+            priv->val = NULL;
+            
+            priv->state = LOADER_GET_ENTRY;
+            break;
+    };
 }
 
 static void
 media_object_characters (MediaObject *self,
-						 const char *chars,
-						 int len)
+                         const char *chars,
+                         int len)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	
-	if (priv->state == LOADER_GET_TAG) {
-		gchar *new_part = g_strndup (chars, len);
-		gchar *tstr = g_strconcat (priv->val, new_part, NULL);
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    
+    if (priv->state == LOADER_GET_TAG) {
+        gchar *new_part = g_strndup (chars, len);
+        gchar *tstr = g_strconcat (priv->val, new_part, NULL);
 
-		g_free (priv->val);
-		g_free (new_part);
-		
-		priv->val = tstr;
-	}
+        g_free (priv->val);
+        g_free (new_part);
+        
+        priv->val = tstr;
+    }
 }
 
 static void
 media_object_add_entry (TagHandler *th,
-						GHashTable *info,
-						gpointer user_data)
+                        GHashTable *info,
+                        gpointer user_data)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (MEDIA_OBJECT (user_data));
-	gint *id;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (MEDIA_OBJECT (user_data));
+    gint *id;
 
-	id = g_new0 (gint, 1);
-	*id = priv->next_id++;
-	
-	g_hash_table_ref (info);
-	
-	g_hash_table_insert (info, g_strdup ("id"), g_strdup_printf ("%d",*id));
-	g_hash_table_insert (priv->media, id, info);
-	
-	g_signal_emit (G_OBJECT (user_data), signal_media_added, 0, *id);
+    id = g_new0 (gint, 1);
+    *id = priv->next_id++;
+    
+    g_hash_table_ref (info);
+    
+    g_hash_table_insert (info, g_strdup ("id"), g_strdup_printf ("%d",*id));
+    g_hash_table_insert (priv->media, id, info);
+    
+    g_signal_emit (G_OBJECT (user_data), signal_media_added, 0, *id);
 }
 
 static void
 media_object_load_xml (MediaObject *self)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	
-	if (priv->media != NULL) {
-		g_hash_table_unref (priv->media);
-	}
-	
-	priv->media = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, g_hash_table_unref);
-	
-	priv->sax = g_new0 (xmlSAXHandler, 1);
-	
-	priv->sax->startElement = (startElementSAXFunc) media_object_start_element;
-	priv->sax->endElement = (endElementSAXFunc) media_object_end_element;
-	priv->sax->characters = (charactersSAXFunc) media_object_characters;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    
+    if (priv->media != NULL) {
+        g_hash_table_unref (priv->media);
+    }
+    
+    priv->media = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, g_hash_table_unref);
+    
+    priv->sax = g_new0 (xmlSAXHandler, 1);
+    
+    priv->sax->startElement = (startElementSAXFunc) media_object_start_element;
+    priv->sax->endElement = (endElementSAXFunc) media_object_end_element;
+    priv->sax->characters = (charactersSAXFunc) media_object_characters;
 
-	priv->state = LOADER_START;
-	priv->key = NULL;
-	priv->val = NULL;
-	priv->entry = NULL;
-	
-	if (!g_file_test (priv->media_file, G_FILE_TEST_EXISTS))
-		return;
-	
-	printf ("Parsing XML in file %s\n", priv->media_file);
-	xmlSAXUserParseFile (priv->sax, self, priv->media_file);
-		
-	g_free (priv->sax);
-	priv->sax = NULL;
+    priv->state = LOADER_START;
+    priv->key = NULL;
+    priv->val = NULL;
+    priv->entry = NULL;
+    
+    if (!g_file_test (priv->media_file, G_FILE_TEST_EXISTS))
+        return;
+    
+    printf ("Parsing XML in file %s\n", priv->media_file);
+    xmlSAXUserParseFile (priv->sax, self, priv->media_file);
+        
+    g_free (priv->sax);
+    priv->sax = NULL;
 }
 
 static void
 media_object_save_xml (MediaObject *self)
 {
-	MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-	GHashTableIter iter, iter2;
-	GHashTable *entry;
-	guint *id;
-	gchar *key, *value;
+    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    GHashTableIter iter, iter2;
+    GHashTable *entry;
+    guint *id;
+    gchar *key, *value;
 
-	g_print ("Saving XML in file %s\n", priv->media_file);
-	
-	FILE *fptr = fopen (priv->media_file, "w");
-	gchar *str = g_strdup_printf ("<GMediaDB version=\'1.0\' media_type=\'%s\'>\n", priv->media_type);
-	fwrite (str, 1, strlen (str), fptr);
-	g_free (str);
+    g_print ("Saving XML in file %s\n", priv->media_file);
+    
+    FILE *fptr = fopen (priv->media_file, "w");
+    gchar *str = g_strdup_printf ("<GMediaDB version=\'1.0\' media_type=\'%s\'>\n", priv->media_type);
+    fwrite (str, 1, strlen (str), fptr);
+    g_free (str);
 
-	g_hash_table_iter_init (&iter, priv->media);
-	while (g_hash_table_iter_next (&iter, &id, &entry)) {
-		g_hash_table_iter_init (&iter2, entry);
-		fwrite ("\t<entry>\n", 1, 9, fptr);
-		while (g_hash_table_iter_next (&iter2, &key, &value)) {
-			if (!strcmp (key, "id"))
-				continue;
-				
-			str = g_markup_printf_escaped ("\t\t<%s>%s</%s>\n", key, value, key);
-			fwrite (str, 1, strlen (str), fptr);
-			g_free (str);
-		}
-		fwrite ("\t</entry>\n", 1, 10, fptr);
-	}
+    g_hash_table_iter_init (&iter, priv->media);
+    while (g_hash_table_iter_next (&iter, &id, &entry)) {
+        g_hash_table_iter_init (&iter2, entry);
+        fwrite ("\t<entry>\n", 1, 9, fptr);
+        while (g_hash_table_iter_next (&iter2, &key, &value)) {
+            if (!strcmp (key, "id"))
+                continue;
+                
+            str = g_markup_printf_escaped ("\t\t<%s>%s</%s>\n", key, value, key);
+            fwrite (str, 1, strlen (str), fptr);
+            g_free (str);
+        }
+        fwrite ("\t</entry>\n", 1, 10, fptr);
+    }
 
-	fwrite ("</GMediaDB>", 1, 11, fptr);
+    fwrite ("</GMediaDB>", 1, 11, fptr);
 
-	fclose (fptr);
+    fclose (fptr);
 
 }
 

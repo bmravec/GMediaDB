@@ -59,6 +59,7 @@ gboolean media_object_ref (MediaObject *self, GError **error);
 gboolean media_object_unref (MediaObject *self, GError **error);
 gboolean media_object_get_entries (MediaObject *self, GArray *ids, gchar **tags, GPtrArray **entries, GError **error);
 gboolean media_object_get_all_entries (MediaObject *self, gchar **tags, GPtrArray **entries, GError **error);
+gboolean media_object_get_entry_tags (MediaObject *self, gint id,gchar ***tags,GError **error);
 gboolean media_object_import_path (MediaObject *self, gchar *path, GError **error);
 gboolean media_object_remove_entries (MediaObject *self, GArray *ids, GError **error);
 
