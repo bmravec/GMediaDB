@@ -7,3 +7,6 @@ EXTRA_DIST = $(service_in_files)
 
 %.service: %.service.in
 	@sed -e "s|\@bindir\@|$(bindir)|" $< > $@
+
+pkgconfigdir=$(libdir)/pkgconfig
+pkgconfig_DATA=gmediadb-1.0.pc

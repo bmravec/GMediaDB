@@ -124,7 +124,7 @@ main (int argc, char *argv[])
 
         GPtrArray *entries;
         GError *error = NULL;
-        gchar *tags[] = { "location" };
+        gchar *tags[] = { "id", "location" };
         if (!dbus_g_proxy_call (mos[i].proxy, "get_all_entries", &error,
             G_TYPE_STRV, tags, G_TYPE_INVALID,
             dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRV), &entries, G_TYPE_INVALID)) {
@@ -141,6 +141,7 @@ main (int argc, char *argv[])
         GtkTreeIter iter;
         for (j = 0; j < entries->len; j++) {
             gchar **entry = g_ptr_array_index (entries, j);
+            g_print ("Post: %s, %s\n", entry[0], entry[1]);
             gtk_list_store_append (mos[i].store, &iter);
             gtk_list_store_set (mos[i].store, &iter, 0, atoi (entry[0]), 1, entry[1], -1);
         }
@@ -314,12 +315,38 @@ info_clicked (GtkWidget *widget, gpointer user_data)
         return;
     }
     
-    i = 0;
-    g_print ("Tag: ");
-    while (tags[i]) {
-        g_print ("%s,", tags[i++]);
+    GArray *ids = g_array_new (FALSE, TRUE, sizeof (guint));
+    g_array_append_val (ids, id);
+    GPtrArray *entries;
+    
+    if (!dbus_g_proxy_call (mo->proxy, "get_entries", &error,
+        DBUS_TYPE_G_UINT_ARRAY, ids,
+        G_TYPE_STRV, tags,
+        G_TYPE_INVALID,
+        dbus_g_type_get_collection ("GPtrArray", G_TYPE_STRV), &entries,
+        G_TYPE_INVALID)) {
+        if (error->domain == DBUS_GERROR && error->code == DBUS_GERROR_REMOTE_EXCEPTION) {
+            g_printerr ("Caught remote method exception %s: %s",
+                dbus_g_error_get_name (error), error->message);
+        } else {
+            g_printerr ("Error: %s\n", error->message);
+        }
+        
+        g_error_free (error);
+        return;
     }
-    g_print ("\n");
+    
+    int j;
+    for (j = 0; j < entries->len; j++) {
+        gchar **entry = g_ptr_array_index (entries, j);
+        int k = 0;
+        while (tags[k]) {
+            g_print ("%s : %s\n", tags[k], entry[k]);
+            k++;
+        }
+    }
+    
+    g_ptr_array_free (entries, TRUE);
 }
 
 void
@@ -331,7 +358,7 @@ media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
     
     GPtrArray *entries;
     GError *error = NULL;
-    gchar *tags[] = { "location" };
+    gchar *tags[] = { "id", "location" };
     GArray *ids = g_array_new (FALSE, TRUE, sizeof (guint));
     g_array_append_val (ids, id);
     

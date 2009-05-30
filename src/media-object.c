@@ -186,7 +186,7 @@ media_object_get_entries (MediaObject *self,
     
     gchar *tag_val;
     
-    *entries = g_ptr_array_new ();
+    GPtrArray *ret_entries = g_ptr_array_new ();
     gchar **ret_entry;
 
     gint tag_len = 2;
@@ -195,16 +195,14 @@ media_object_get_entries (MediaObject *self,
     int k;
     for (k = 0; k < ids->len; k++) {
         id = g_array_index (ids, guint, k);
-        g_print ("Entry for id %d\n", id);
         old_entry = g_hash_table_lookup (priv->media, &id);
         
         if (!old_entry)
             continue;
         
-        int i = 0, j = 1;
+        int i = 0, j = 0;
         
         ret_entry = g_new0 (gchar*, tag_len+1);
-        ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
         
         while (tags[i]) {
             tag_val = g_hash_table_lookup (old_entry, tags[i]);
@@ -218,9 +216,11 @@ media_object_get_entries (MediaObject *self,
             i++;
         }
         
-        g_ptr_array_add (*entries, ret_entry);
+        g_ptr_array_add (ret_entries, ret_entry);
     }
-
+    
+    *entries = ret_entries;
+    
     return TRUE;
 }
 
@@ -236,12 +236,7 @@ media_object_get_entry_tags (MediaObject *self,
     gchar **ret_tags;
     
     gint i = g_hash_table_size (entry);
-//    *tags = g_new0 (gchar*, i+1);
-    g_print ("ID: %d\n", id);
-    g_print ("Number of Keys: %d\n", i);
-    
-    ret_tags = (gchar**) g_malloc ((i+1) * sizeof (gchar*));
-    ret_tags[i] = NULL;
+    ret_tags = g_new0 (gchar*, i + 1);
     
     GHashTableIter iter;
     gpointer key;
@@ -273,7 +268,7 @@ media_object_get_all_entries (MediaObject *self,
     
     gchar *tag_val;
     
-    *entries = g_ptr_array_new ();
+    GPtrArray *ret_entries = g_ptr_array_new ();
     gchar **ret_entry;
 
     gint tag_len = 2;
@@ -281,14 +276,13 @@ media_object_get_all_entries (MediaObject *self,
     
     g_hash_table_iter_init (&iter, priv->media);
     while (g_hash_table_iter_next (&iter, &id, &old_entry)) {
-        int i = 0, j = 1;
+        int i = 0, j = 0;
         g_print ("%d ", *id);
         ret_entry = g_new0 (gchar*, tag_len+1);
-        ret_entry[0] = g_strdup (g_hash_table_lookup (old_entry, "id"));
         
         while (tags[i]) {
             tag_val = g_hash_table_lookup (old_entry, tags[i]);
-
+            
             if (tag_val != NULL)
                 ret_entry[j] = g_strdup (tag_val);
             else
@@ -298,9 +292,11 @@ media_object_get_all_entries (MediaObject *self,
             i++;
         }
         
-        g_ptr_array_add (*entries, ret_entry);
+        g_ptr_array_add (ret_entries, ret_entry);
     }
     g_print ("\n");
+    
+    *entries = ret_entries;
     
     return TRUE;
 }
