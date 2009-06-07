@@ -45,11 +45,13 @@ struct _MediaObjectPrivate {
     gchar *media_type;
     gchar *media_file;
     GMediaDB *gdb;
-    GHashTable *media;
     guint next_id;
     gint ref_cnt;
     TagHandler *tag_handler;
-
+    
+    GHashTable *media;
+    GMutex *media_lock;
+    
     // XML Parser Data
     xmlSAXHandlerPtr sax;
     GHashTable *entry;
@@ -103,6 +105,8 @@ media_object_init (MediaObject *object)
     
     priv->next_id = 1;
     priv->ref_cnt = 0;
+    
+    priv->media_lock = g_mutex_new ();
 }
 
 MediaObject *
@@ -110,7 +114,7 @@ media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
 {
     MediaObject *object = g_object_new (MEDIA_OBJECT_TYPE, NULL);
     MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (object);
-
+    
     priv->gdb = gdb;
     priv->media_file = g_strdup_printf ("%s/%s/%s.xml", g_get_home_dir (), ".gnome2/gmediadb", media_type);
     
@@ -119,7 +123,7 @@ media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
     gchar *path = g_strdup_printf ("%s/%s", GMEDIADB_DBUS_PATH, media_type);
     dbus_g_connection_register_g_object (conn, path, object);
     g_free (path);
-
+    
     return object;
 }
 
@@ -189,12 +193,15 @@ media_object_get_entries (MediaObject *self,
     GPtrArray *ret_entries = g_ptr_array_new ();
     gchar **ret_entry;
 
-    gint tag_len = 2;
-    while (tags[tag_len]) tag_len++;
+    gint tag_len = 0;
+    while (tags[tag_len++]);
 
     int k;
     for (k = 0; k < ids->len; k++) {
         id = g_array_index (ids, guint, k);
+        
+        g_mutex_lock (priv->media_lock);
+        
         old_entry = g_hash_table_lookup (priv->media, &id);
         
         if (!old_entry)
@@ -216,6 +223,8 @@ media_object_get_entries (MediaObject *self,
             i++;
         }
         
+        g_mutex_unlock (priv->media_lock);
+        
         g_ptr_array_add (ret_entries, ret_entry);
     }
     
@@ -231,6 +240,8 @@ media_object_get_entry_tags (MediaObject *self,
                              GError **error)
 {
     MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
+    
+    g_mutex_lock (priv->media_lock);
     
     GHashTable *entry = g_hash_table_lookup (priv->media, &id);
     gchar **ret_tags;
@@ -248,6 +259,8 @@ media_object_get_entry_tags (MediaObject *self,
     }
     
     *tags = ret_tags;
+    
+    g_mutex_unlock (priv->media_lock);
     
     return TRUE;
 }
@@ -274,6 +287,8 @@ media_object_get_all_entries (MediaObject *self,
     gint tag_len = 2;
     while (tags[tag_len]) tag_len++;
     
+    g_mutex_lock (priv->media_lock);
+    
     g_hash_table_iter_init (&iter, priv->media);
     while (g_hash_table_iter_next (&iter, &id, &old_entry)) {
         int i = 0, j = 0;
@@ -295,6 +310,8 @@ media_object_get_all_entries (MediaObject *self,
         g_ptr_array_add (ret_entries, ret_entry);
     }
     g_print ("\n");
+    
+    g_mutex_unlock (priv->media_lock);
     
     *entries = ret_entries;
     
@@ -342,7 +359,10 @@ media_object_remove_entries (MediaObject *self,
     for (i = 0; i < ids->len; i++) {
         guint index = g_array_index (ids, guint, i);
         g_signal_emit (self, signal_media_removed, 0, index);
+        
+        g_mutex_lock (priv->media_lock);
         g_hash_table_remove (priv->media, &index);
+        g_mutex_unlock (priv->media_lock);
     }
     
     return TRUE;
@@ -437,7 +457,10 @@ media_object_add_entry (TagHandler *th,
     g_hash_table_ref (info);
     
     g_hash_table_insert (info, g_strdup ("id"), g_strdup_printf ("%d",*id));
+    
+    g_mutex_lock (priv->media_lock);
     g_hash_table_insert (priv->media, id, info);
+    g_mutex_unlock (priv->media_lock);
     
     g_signal_emit (G_OBJECT (user_data), signal_media_added, 0, *id);
 }

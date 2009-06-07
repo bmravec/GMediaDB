@@ -43,6 +43,12 @@ struct _TagHandlerPrivate
 
 void tag_handler_emit_add_signal (TagHandler *self, GHashTable *info);
 
+gchar *
+g_strdup0 (gchar *str)
+{
+    return str ? g_strdup (str) : g_strdup ("");
+}
+
 gpointer
 tag_handler_main (gpointer data)
 {
@@ -84,17 +90,17 @@ tag_handler_main (gpointer data)
 		tag = taglib_file_tag(file);
 		properties = taglib_file_audioproperties(file);
 		
-		g_hash_table_insert (info, g_strdup ("artist"), g_strdup (taglib_tag_artist (tag)));
-		g_hash_table_insert (info, g_strdup ("title"), g_strdup (taglib_tag_title (tag)));
-		g_hash_table_insert (info, g_strdup ("album"), g_strdup (taglib_tag_album (tag)));
-		g_hash_table_insert (info, g_strdup ("comment"), g_strdup (taglib_tag_comment (tag)));
-		g_hash_table_insert (info, g_strdup ("genre"), g_strdup (taglib_tag_genre (tag)));
+		g_hash_table_insert (info, g_strdup ("artist"), g_strdup0 (taglib_tag_artist (tag)));
+		g_hash_table_insert (info, g_strdup ("title"), g_strdup0 (taglib_tag_title (tag)));
+		g_hash_table_insert (info, g_strdup ("album"), g_strdup0 (taglib_tag_album (tag)));
+		g_hash_table_insert (info, g_strdup ("comment"), g_strdup0 (taglib_tag_comment (tag)));
+		g_hash_table_insert (info, g_strdup ("genre"), g_strdup0 (taglib_tag_genre (tag)));
 		g_hash_table_insert (info, g_strdup ("year"), g_strdup_printf ("%d",taglib_tag_year (tag))); 
 		g_hash_table_insert (info, g_strdup ("track"), g_strdup_printf ("%d",taglib_tag_track (tag))); 
-		g_hash_table_insert (info, g_strdup ("location"), g_strdup (entry));
+		g_hash_table_insert (info, g_strdup ("location"), g_strdup0 (entry));
 		
 		tag_handler_emit_add_signal (self, info);
-
+        
 		g_hash_table_unref (info);
 		info = NULL;
 		
@@ -169,7 +175,6 @@ tag_handler_emit_add_signal (TagHandler *self, GHashTable *info)
 {
 	GHashTableIter iter;
 	gpointer key, value;
-	
 	g_signal_emit (self, signal_add_entry, 0, info);
 //	g_print ("---------------------------------------------");
 //	g_print ("Add Entry:\n");
