@@ -27,35 +27,36 @@
 #define GMEDIADB_DBUS_SERVICE "org.gnome.GMediaDB"
 #define GMEDIADB_DBUS_PATH "/org/gnome/GMediaDB"
 
-G_BEGIN_DECLS
+#define GMEDIADB_TYPE (gmediadb_get_type ())
+#define GMEDIADB(object) (G_TYPE_CHECK_INSTANCE_CAST ((object), GMEDIADB_TYPE, GMediaDB))
+#define GMEDIADB_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), GMEDIADB_TYPE, GMediaDBClass))
+#define IS_GMEDIADB(object) (G_TYPE_CHECK_INSTANCE_TYPE ((object), GMEDIADB_TYPE))
+#define IS_GMEDIADB_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), GMEDIADB_TYPE))
+#define GMEDIADB_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), GMEDIADB_TYPE, GMediaDBClass))
 
-#define GMEDIA_DB_TYPE (gmedia_db_get_type())
-#define GMEDIA_DB(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GMEDIA_DB_TYPE, GMediaDB))
-#define GMEDIA_DB_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GMEDIA_DB_TYPE, GMediaDBClass))
-#define IS_GMEDIA_DB(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GMEDIA_DB_TYPE))
-#define IS_GMEDIA_DB_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GMEDIA_DB_TYPE))
+G_BEGIN_DECLS
 
 typedef struct _GMediaDB GMediaDB;
 typedef struct _GMediaDBClass GMediaDBClass;
+typedef struct _GMediaDBPrivate GMediaDBPrivate;
 
-struct _GMediaDB
-{
-	GObject parent;
+struct _GMediaDB {
+    GObject parent;
+    
+    GMediaDBPrivate *priv;
 };
 
-struct _GMediaDBClass
-{
-	GObjectClass parent_class;
+struct _GMediaDBClass {
+    GObjectClass parent;
 };
 
-GType gmedia_db_get_type (void);
-GObject *gmedia_db_new (void);
 
-void gmedia_db_run (GMediaDB *self);
-void gmedia_db_stop (GMediaDB *self);
+GMediaDB *gmediadb_new ();
+GType gmediadb_get_type (void);
 
-void gmedia_db_ref (GMediaDB *self);
-void gmedia_db_unref (GMediaDB *self);
+gboolean gmediadb_register_type (GMediaDB *self, gchar *name, GError **error);
+void gmediadb_ref (GMediaDB *self);
+void gmediadb_unref (GMediaDB *self);
 
 G_END_DECLS
 

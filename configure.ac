@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
-AC_INIT([gmediadb],[0.0.1])
-AC_CONFIG_SRCDIR([src/gmediadb.c])
+AC_INIT([gmediadb],[0.5.0])
+AC_CONFIG_SRCDIR([gmediadb/gmediadb.c])
 AM_INIT_AUTOMAKE([dist-bzip2])
 CFLAGS="$CFLAGS -g"
 AC_PROG_CC
@@ -9,29 +9,16 @@ AC_PROG_LIBTOOL
 
 DBUS_REQUIRED=0.60
 
-PKG_CHECK_MODULES(PROG, glib-2.0 gthread-2.0 libxml-2.0 taglib_c
-	dbus-1 >= $DBUS_REQUIRED
-	dbus-glib-1 >= $DBUS_REQUIRED)
+PKG_CHECK_MODULES(PROG, glib-2.0 gthread-2.0 dbus-1 >= 0.60 dbus-glib-1 >= 0.60)
 AC_SUBST(PROG_CFLAGS)
 AC_SUBST(PROG_LIBS)
-
-PKG_CHECK_MODULES(GLIB, glib)
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-
-PKG_CHECK_MODULES(GTK, gtk+-2.0)
-AC_SUBST(GTK_CFLAGS)
-AC_SUBST(GTK_LIBS)
 
 AC_PATH_PROG(DBUSBINDINGTOOL, dbus-binding-tool)
 AC_SUBST(DBUSBINDINGTOOL)
 
-AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
-AC_SUBST(GLIB_GENMARSHAL)
-
 AC_OUTPUT([
 Makefile
-data/Makefile
-src/Makefile
-data/gmediadb-1.0.pc
+gmediadb/Makefile
+gmediadb/gmediadb-1.0.pc
+dbus-server/Makefile
 ])

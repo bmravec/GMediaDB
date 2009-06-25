@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<node name="/org/gnome/GMediaDB">
+    <interface name="org.gnome.GMediaDB">
+        <method name="register_type">
+            <arg name="media_type" type="s" direction="in" />
+        </method>
+    </interface>
+</node>

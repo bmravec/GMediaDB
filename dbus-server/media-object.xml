@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<node name="/org/gnome/GMediaDB/MediaObject">
+    <interface name="org.gnome.GMediaDB.MediaObject">
+        <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="media_object"/>
+        <method name="ref"/>
+        <method name="unref"/>
+        <method name="add_entry">
+            <arg name="ident" type="u"/>
+        </method>
+        <method name="remove_entry">
+            <arg name="ident" type="u"/>
+        </method>
+        <signal name="media_added">
+            <arg name="ident" type="u"/>
+        </signal>
+        <signal name="media_removed">
+            <arg name="ident" type="u"/>
+        </signal>
+    </interface>
+</node>
+

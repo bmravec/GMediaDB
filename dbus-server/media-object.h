@@ -28,7 +28,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 
 #include "gmediadb.h"
-        
+    
 #define MEDIA_OBJECT_TYPE (media_object_get_type ())
 #define MEDIA_OBJECT(object) (G_TYPE_CHECK_INSTANCE_CAST ((object), MEDIA_OBJECT_TYPE, MediaObject))
 #define MEDIA_OBJECT_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), MEDIA_OBJECT_TYPE, MediaObjectClass))
@@ -40,29 +40,31 @@ G_BEGIN_DECLS
 
 typedef struct _MediaObject MediaObject;
 typedef struct _MediaObjectClass MediaObjectClass;
+typedef struct _MediaObjectPrivate MediaObjectPrivate;
 
 struct _MediaObject {
-        GObject parent;
+    GObject parent;
+    
+    MediaObjectPrivate *priv;
 };
 
 struct _MediaObjectClass {
-        GObjectClass parent;
-        
-        void (*media_added) (MediaObject *mo, guint ident);
-        void (*media_removed) (MediaObject *mo, guint ident);
+    GObjectClass parent;
+    
+    void (*media_added) (MediaObject *mo, guint ident);
+    void (*media_removed) (MediaObject *mo, guint ident);
 };
 
 MediaObject *media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb);
 GType media_object_get_type (void);
 
+gboolean media_object_add_entry (MediaObject *self, guint ident, GError **error);
+gboolean media_object_remove_entry (MediaObject *self, guint ident, GError **error);
+
 gboolean media_object_ref (MediaObject *self, GError **error);
 gboolean media_object_unref (MediaObject *self, GError **error);
-gboolean media_object_get_entries (MediaObject *self, GArray *ids, gchar **tags, GPtrArray **entries, GError **error);
-gboolean media_object_get_all_entries (MediaObject *self, gchar **tags, GPtrArray **entries, GError **error);
-gboolean media_object_get_entry_tags (MediaObject *self, gint id,gchar ***tags,GError **error);
-gboolean media_object_import_path (MediaObject *self, gchar *path, GError **error);
-gboolean media_object_remove_entries (MediaObject *self, GArray *ids, GError **error);
 
 G_END_DECLS
 
 #endif
+
