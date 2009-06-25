@@ -11152,6 +11152,8 @@ CC="$lt_save_CC"
 
 
 
+
+
 DBUS_REQUIRED=0.60
 
 
@@ -11424,7 +11426,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile gmediadb/Makefile gmediadb/gmediadb-1.0.pc dbus-server/Makefile"
+ac_config_files="$ac_config_files Makefile gmediadb/Makefile gmediadb/gmediadb.pc dbus-server/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -12327,7 +12329,7 @@ do
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "gmediadb/Makefile") CONFIG_FILES="$CONFIG_FILES gmediadb/Makefile" ;;
-    "gmediadb/gmediadb-1.0.pc") CONFIG_FILES="$CONFIG_FILES gmediadb/gmediadb-1.0.pc" ;;
+    "gmediadb/gmediadb.pc") CONFIG_FILES="$CONFIG_FILES gmediadb/gmediadb.pc" ;;
     "dbus-server/Makefile") CONFIG_FILES="$CONFIG_FILES dbus-server/Makefile" ;;
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5

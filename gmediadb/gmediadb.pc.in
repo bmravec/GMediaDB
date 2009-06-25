@@ -7,5 +7,4 @@ Name: GMediaDB
 Description: Gnome Media Database
 Requires: glib
 Version: @VERSION@
-Libs: -L${libdir} -llibgmediadb-1.0
-Cflags: -I${includedir}/gmediadb-1.0
+Libs: -L${libdir} -llibgmediadb

@@ -21,6 +21,6 @@ AC_SUBST(DBUSBINDINGTOOL)
 AC_OUTPUT([
 Makefile
 gmediadb/Makefile
-gmediadb/gmediadb-1.0.pc
+gmediadb/gmediadb.pc
 dbus-server/Makefile
 ])

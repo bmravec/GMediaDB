@@ -1,3 +1,5 @@
+INCLUDES=$(PROG_CFLAGS)
+
 lib_LTLIBRARIES = libgmediadb.la
 
 libgmediadb_la_SOURCES=gmediadb.h gmediadb.c
@@ -10,7 +12,7 @@ libgmediadb_la_LIBADD=$(PROG_LIBS)
 libgmediadb_la_DEPENDENCIES=$(PROG)
 
 pkgconfigdir=$(libdir)/pkgconfig
-pkgconfig_DATA=gmediadb-1.0.pc
+pkgconfig_DATA=gmediadb.pc
 
-EXTRA_DIST=gmediadb-1.0.pc.in
-CLEANFILES=gmediadb-1.0.pc
+EXTRA_DIST=gmediadb.pc.in
+CLEANFILES=gmediadb.pc
