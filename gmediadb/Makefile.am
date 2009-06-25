@@ -1,13 +1,13 @@
-lib_LTLIBRARIES = gmediadb.la
+lib_LTLIBRARIES = libgmediadb.la
 
-gmediadb_la_SOURCES=gmediadb.h gmediadb.c
+libgmediadb_la_SOURCES=gmediadb.h gmediadb.c
 
 library_includedir=$(includedir)/
 library_include_HEADERS=gmediadb.h
 
-gmediadb_la_LDFLAGS=$(PROG_CFLAGS)
-gmediadb_la_LIBADD=$(PROG_LIBS)
-gmediadb_la_DEPENDENCIES=$(PROG)
+libgmediadb_la_LDFLAGS=$(PROG_CFLAGS)
+libgmediadb_la_LIBADD=$(PROG_LIBS)
+libgmediadb_la_DEPENDENCIES=$(PROG)
 
 pkgconfigdir=$(libdir)/pkgconfig
 pkgconfig_DATA=gmediadb-1.0.pc

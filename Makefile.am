@@ -1,1 +1,1 @@
-SUBDIRS = data src
+SUBDIRS = dbus-server gmediadb
