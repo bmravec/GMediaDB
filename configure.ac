@@ -11,7 +11,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 DBUS_REQUIRED=0.60
 
-PKG_CHECK_MODULES(PROG, glib-2.0 gthread-2.0 dbus-1 >= 0.60 dbus-glib-1 >= 0.60)
+PKG_CHECK_MODULES(PROG, glib-2.0 gthread-2.0 dbus-1 >= 0.60 dbus-glib-1 >= 0.60 sqlite3)
 AC_SUBST(PROG_CFLAGS)
 AC_SUBST(PROG_LIBS)
 

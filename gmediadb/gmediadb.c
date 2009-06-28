@@ -362,3 +362,25 @@ gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
     }
 }
 
+void
+gmediadb_remove_entry (GMediaDB *self, guint id)
+{
+    gchar *errmsg;
+    gchar *stmt = g_strdup_printf ("DELETE FROM music WHERE id=%d;", id);
+    
+    int rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
+    
+    g_free (stmt);
+    
+    if (errmsg) {
+        g_print ("ERROR(%d): %s\n", rv, errmsg);
+        sqlite3_free (errmsg);
+        return;
+    }
+    
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "remove_entry", NULL,
+        G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
+        g_printerr ("Unable to send remove MediaObject: %d\n", self->priv->rowid);
+    }
+}
+

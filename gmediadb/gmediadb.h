@@ -55,6 +55,9 @@ gchar **gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[]);
 GPtrArray *gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[]);
 GPtrArray *gmediadb_get_all_entries (GMediaDB *self, gchar *tags[]);
 
+GPtrArray* gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[]);
+void gmediadb_remove_entry (GMediaDB *self, guint id);
+
 G_END_DECLS
 
 #endif /* __GMEDIADB_H__ */
