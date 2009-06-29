@@ -100,8 +100,10 @@ sqlite_update_callback (GMediaDB *self,
                         gchar *table,
                         sqlite3_int64 rowid)
 {
-    self->priv->op_type = op_type;
-    self->priv->rowid = rowid;
+    if (!g_strcmp0 (table, self->priv->mtype)) {
+        self->priv->op_type = op_type;
+        self->priv->rowid = rowid;
+    }
 }
 
 static int
@@ -121,6 +123,7 @@ sqlite_callback (GPtrArray *array, int argc, char **argv, char **azColName)
     g_ptr_array_add (array, entry);
     return 0;
 }
+
 static gchar*
 error_no_such_column (const gchar *error)
 {
@@ -145,11 +148,11 @@ sqlite_get (GMediaDB *self, GArray *ids, gchar *tags[])
     
     if (ids) {
         gchar *sids = guint_array_to_string (ids);
-        stmt = g_strdup_printf ("SELECT %s FROM music WHERE id in (%s);",
-            stags, sids);
+        stmt = g_strdup_printf ("SELECT %s FROM %s WHERE id in (%s);",
+            stags, self->priv->mtype, sids);
         g_free (sids);
     } else {
-        stmt = g_strdup_printf ("SELECT %s FROM music;", stags);
+        stmt = g_strdup_printf ("SELECT %s FROM %s;", stags, self->priv->mtype);
     }
     
     g_free (stags);
@@ -258,6 +261,20 @@ gmediadb_init (GMediaDB *self)
         "org.gnome.GMediaDB", "/org/gnome/GMediaDB", "org.gnome.GMediaDB");
 }
 
+static gchar*
+error_no_such_table (const gchar *error)
+{
+    int i;
+    for (i = 0; i < 15; i++) {
+        if (error[i] == "no such table: "[i])
+            continue;
+        else
+            return NULL;
+    }
+    
+    return g_strdup (error + i);
+}
+
 GMediaDB*
 gmediadb_new (const gchar *mediatype)
 {
@@ -285,6 +302,31 @@ gmediadb_new (const gchar *mediatype)
         return NULL;
     }
     
+    //TODO: Should probably use a different command to discover if table exists
+    gchar *stmt = g_strdup_printf ("SELECT * FROM %s WHERE id=0;",
+        self->priv->mtype);
+    gchar *errmsg;
+    int rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
+    g_free (stmt);
+    
+    if (errmsg) {
+        gchar *new_table;
+        if (new_table = error_no_such_table (errmsg)) {
+            gchar *create = g_strdup_printf (
+                "CREATE TABLE %s (location STRING, id INTEGER PRIMARY KEY AUTOINCREMENT);",
+                self->priv->mtype);
+            g_print ("%s\n",create);
+            sqlite3_exec (self->priv->db, create, NULL, NULL, NULL);
+            
+            g_free (create);
+            g_free (new_table);
+            sqlite3_free (errmsg);
+        } else {
+            g_print ("ERROR(%d): %s\n", rv, errmsg);
+            sqlite3_free (errmsg);
+        }
+    }
+
     dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_added",
         G_TYPE_UINT, G_TYPE_INVALID);
     dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_removed",
@@ -319,7 +361,7 @@ gmediadb_get_tags (GMediaDB *self)
     gchar **values = NULL;
     
     if (self->priv->db) {
-        stmt = g_strdup_printf ("PRAGMA table_info(%s);", self->priv->mtype);
+        stmt = g_strdup_printf ("PRAGMA table_info (%s);", self->priv->mtype);
         
         gchar *errmsg;
         
@@ -332,6 +374,7 @@ gmediadb_get_tags (GMediaDB *self)
             g_print ("ERROR(%d): %s\n", rv, errmsg);
             sqlite3_free (errmsg);
         } else {
+            g_ptr_array_add (array, NULL);
             values = (gchar**) array->pdata;
             g_ptr_array_free (array, FALSE);
         }
@@ -371,7 +414,8 @@ gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[])
     
     if (self->priv->db) {
         gchar *stags = g_strjoinv (",", tags);
-        stmt = g_strdup_printf ("SELECT %s FROM music WHERE id=%d;", stags, id);
+        stmt = g_strdup_printf ("SELECT %s FROM %s WHERE id=%d;",
+            stags, self->priv->mtype, id);
         g_free (stags);
         
         gchar *errmsg;
@@ -490,7 +534,8 @@ void
 gmediadb_remove_entry (GMediaDB *self, guint id)
 {
     gchar *errmsg;
-    gchar *stmt = g_strdup_printf ("DELETE FROM music WHERE id=%d;", id);
+    gchar *stmt = g_strdup_printf ("DELETE FROM %s WHERE id=%d;",
+        self->priv->mtype, id);
     
     int rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
     
