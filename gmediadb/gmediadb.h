@@ -51,6 +51,8 @@ struct _GMediaDBClass {
 GMediaDB *gmediadb_new (const gchar *mediatype);
 GType gmediadb_get_type (void);
 
+gchar **gmediadb_get_tags (GMediaDB *self);
+
 gchar **gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[]);
 GPtrArray *gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[]);
 GPtrArray *gmediadb_get_all_entries (GMediaDB *self, gchar *tags[]);
