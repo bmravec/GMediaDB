@@ -41,12 +41,19 @@ struct _GMediaDBPrivate {
 };
 
 static guint signal_add;
+static guint signal_update;
 static guint signal_remove;
 
 void
 media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
 {
     g_signal_emit (G_OBJECT (user_data), signal_add, 0, id);
+}
+
+void
+media_updated_cb (DBusGProxy *proxy, guint id, gpointer user_data)
+{
+    g_signal_emit (G_OBJECT (user_data), signal_update, 0, id);
 }
 
 void
@@ -232,6 +239,10 @@ gmediadb_class_init (GMediaDBClass *klass)
         G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
     
+    signal_add = g_signal_new ("update-entry", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT,
+        G_TYPE_NONE, 1, G_TYPE_UINT);
+
     signal_remove = g_signal_new ("remove-entry", G_TYPE_FROM_CLASS (klass),
         G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
@@ -329,11 +340,15 @@ gmediadb_new (const gchar *mediatype)
 
     dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_added",
         G_TYPE_UINT, G_TYPE_INVALID);
+    dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_updated",
+        G_TYPE_UINT, G_TYPE_INVALID);
     dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_removed",
         G_TYPE_UINT, G_TYPE_INVALID);
     
     dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_added",
         G_CALLBACK (media_added_cb), self, NULL);
+    dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_updated",
+        G_CALLBACK (media_updated_cb), self, NULL);
     dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_removed",
         G_CALLBACK (media_removed_cb), self, NULL);
     
@@ -527,6 +542,48 @@ gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", NULL,
         G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
         g_printerr ("Unable to send add MediaObject: %d\n", self->priv->rowid);
+    }
+}
+
+void
+gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
+{
+    gchar *errmsg;
+    gchar *stag = g_strjoinv (",", tags);
+    gchar *sval = gcharstar_to_string (vals);
+
+    gchar *stmt = g_strdup_printf ("INSERT INTO %s (%s) VALUES (%s) WHERE id=%d;",
+        self->priv->mtype, stag, sval, id);
+
+    int rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
+
+    while (errmsg) {
+        gchar *new_tag = NULL;
+        if (new_tag = error_has_column_missing (self, errmsg)) {
+            sqlite3_free (errmsg);
+            
+            gchar *alter_cmd = g_strdup_printf (
+                "ALTER TABLE %s ADD COLUMN %s STRING;",
+                self->priv->mtype, new_tag);
+            g_free (new_tag);
+            g_print ("%s\n", alter_cmd);
+            sqlite3_exec (self->priv->db, alter_cmd, NULL, NULL, NULL);
+            g_free (alter_cmd);
+            
+            rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
+        } else {
+            g_print ("ERROR(%d): %s\n", rv, errmsg);
+            sqlite3_free (errmsg);
+            g_free (stmt);
+            return;
+        }
+    }
+    
+    g_free (stmt);
+
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "update_entry", NULL,
+        G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
+        g_printerr ("Unable to send update MediaObject: %d\n", self->priv->rowid);
     }
 }
 

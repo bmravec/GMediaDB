@@ -59,6 +59,7 @@ MediaObject *media_object_new (DBusGConnection *conn, gchar *media_type, GMediaD
 GType media_object_get_type (void);
 
 gboolean media_object_add_entry (MediaObject *self, guint ident, GError **error);
+gboolean media_object_update_entry (MediaObject *self, guint ident, GError **error);
 gboolean media_object_remove_entry (MediaObject *self, guint ident, GError **error);
 
 gboolean media_object_ref (MediaObject *self, GError **error);

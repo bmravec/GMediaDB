@@ -16,6 +16,9 @@
         <signal name="media_removed">
             <arg name="ident" type="u"/>
         </signal>
+        <signal name="media_updated">
+            <arg name="ident" type="u"/>
+        </signal>
     </interface>
 </node>
 

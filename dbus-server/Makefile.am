@@ -11,7 +11,7 @@ gmediadb-glue.h: gmediadb.xml
 media-object-glue.h: media-object.xml
 	$(DBUSBINDINGTOOL) --mode=glib-server --output=$@ --prefix=media_object $^
 
-INCLUDES = $(PROG_CFLAGS)
+INCLUDES = $(GLIB_CFLAGS) $(DBUS_CFLAGS)
 
 bin_PROGRAMS = gmediadb
 
@@ -21,7 +21,7 @@ gmediadb_SOURCES = \
 	gmediadb.c gmediadb.h gmediadb-glue.h \
 	media-object.c media-object.h media-object-glue.h
 
-gmediadb_LDADD = $(PROG_LIBS)
+gmediadb_LDADD = $(GLIB_LIBS) $(DBUS_LIBS)
 
 EXTRA_DIST = gmediadb.xml media-object.xml $(service_in_files)
 CLEANFILES = gmediadb-glue.h $(service_DATA)

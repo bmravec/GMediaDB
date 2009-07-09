@@ -33,7 +33,7 @@ struct _MediaObjectPrivate {
     gint ref_cnt;
 };
 
-static guint signal_media_added, signal_media_removed;
+static guint signal_media_added, signal_media_updated, signal_media_removed;
 
 static void
 media_object_finalize (GObject *object)
@@ -52,6 +52,11 @@ media_object_class_init (MediaObjectClass *klass)
     object_class->finalize = media_object_finalize;
 
     signal_media_added = g_signal_new ("media_added", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
+        NULL, NULL, g_cclosure_marshal_VOID__UINT,
+        G_TYPE_NONE, 1, G_TYPE_UINT);
+
+    signal_media_updated = g_signal_new ("media_updated", G_TYPE_FROM_CLASS (klass),
         G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
         NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
@@ -92,6 +97,12 @@ gboolean
 media_object_add_entry (MediaObject *self, guint ident, GError **error)
 {
     g_signal_emit (G_OBJECT (self), signal_media_added, 0, ident);
+}
+
+gboolean
+media_object_update_entry (MediaObject *self, guint ident, GError **error)
+{
+    g_signal_emit (G_OBJECT (self), signal_media_updated, 0, ident);
 }
 
 gboolean
