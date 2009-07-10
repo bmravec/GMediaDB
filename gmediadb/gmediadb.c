@@ -496,8 +496,8 @@ error_has_column_missing (GMediaDB *self, gchar *error)
     return g_strdup (error + i);
 }
 
-GPtrArray*
-gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
+gboolean
+gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 {
     gchar *errmsg;
     gchar *stag = g_strjoinv (",", tags);
@@ -534,7 +534,7 @@ gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
             g_print ("ERROR(%d): %s\n", rv, errmsg);
             sqlite3_free (errmsg);
             g_free (stmt);
-            return;
+            return FALSE;
         }
     }
     
@@ -543,9 +543,11 @@ gmediadb_set_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
         G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
         g_printerr ("Unable to send add MediaObject: %d\n", self->priv->rowid);
     }
+
+    return TRUE;
 }
 
-void
+gboolean
 gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 {
     gchar *errmsg;
@@ -575,7 +577,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
             g_print ("ERROR(%d): %s\n", rv, errmsg);
             sqlite3_free (errmsg);
             g_free (stmt);
-            return;
+            return FALSE;
         }
     }
     
@@ -585,9 +587,11 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
         G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
         g_printerr ("Unable to send update MediaObject: %d\n", self->priv->rowid);
     }
+
+    return TRUE;
 }
 
-void
+gboolean
 gmediadb_remove_entry (GMediaDB *self, guint id)
 {
     gchar *errmsg;
@@ -601,12 +605,14 @@ gmediadb_remove_entry (GMediaDB *self, guint id)
     if (errmsg) {
         g_print ("ERROR(%d): %s\n", rv, errmsg);
         sqlite3_free (errmsg);
-        return;
+        return FALSE;
     }
     
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "remove_entry", NULL,
         G_TYPE_UINT, self->priv->rowid, G_TYPE_INVALID, G_TYPE_INVALID)) {
         g_printerr ("Unable to send remove MediaObject: %d\n", self->priv->rowid);
     }
+
+    return TRUE;
 }
 
