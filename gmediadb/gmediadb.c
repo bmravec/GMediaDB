@@ -253,7 +253,10 @@ gmediadb_init (GMediaDB *self)
 {
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE((self), GMEDIADB_TYPE, GMediaDBPrivate);
     
-    int rc = sqlite3_open ("/home/bmravec/.gnome2/gmedia.db", &self->priv->db);
+    gchar * path = g_strdup_printf ("%s/gmedia.db", g_get_user_config_dir ());
+    int rc = sqlite3_open (path, &self->priv->db);
+    g_free (path);
+    
     if(rc){
         g_print ("Can't open database: %s\n", sqlite3_errmsg(self->priv->db));
         sqlite3_close (self->priv->db);
