@@ -239,7 +239,7 @@ gmediadb_class_init (GMediaDBClass *klass)
         G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
     
-    signal_add = g_signal_new ("update-entry", G_TYPE_FROM_CLASS (klass),
+    signal_update = g_signal_new ("update-entry", G_TYPE_FROM_CLASS (klass),
         G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
 
@@ -566,7 +566,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
         gchar *new_tag = NULL;
         if (new_tag = error_has_column_missing (self, errmsg)) {
             sqlite3_free (errmsg);
-            
+
             gchar *alter_cmd = g_strdup_printf (
                 "ALTER TABLE %s ADD COLUMN %s STRING;",
                 self->priv->mtype, new_tag);
@@ -574,7 +574,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
             g_print ("%s\n", alter_cmd);
             sqlite3_exec (self->priv->db, alter_cmd, NULL, NULL, NULL);
             g_free (alter_cmd);
-            
+
             rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
         } else {
             g_print ("ERROR(%d): %s\n", rv, errmsg);
@@ -583,7 +583,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
             return FALSE;
         }
     }
-    
+
     g_free (stmt);
 
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "update_entry", NULL,
