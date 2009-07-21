@@ -7,6 +7,9 @@
         <method name="add_entry">
             <arg name="ident" type="u"/>
         </method>
+        <method name="update_entry">
+            <arg name="ident" type="u"/>
+        </method>
         <method name="remove_entry">
             <arg name="ident" type="u"/>
         </method>

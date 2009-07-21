@@ -57,7 +57,7 @@ media_object_class_init (MediaObjectClass *klass)
         G_TYPE_NONE, 1, G_TYPE_UINT);
 
     signal_media_updated = g_signal_new ("media_updated", G_TYPE_FROM_CLASS (klass),
-        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_added),
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_updated),
         NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
 

@@ -24,4 +24,4 @@ gmediadb_SOURCES = \
 gmediadb_LDADD = $(GLIB_LIBS) $(DBUS_LIBS)
 
 EXTRA_DIST = gmediadb.xml media-object.xml $(service_in_files)
-CLEANFILES = gmediadb-glue.h $(service_DATA)
+CLEANFILES = gmediadb-glue.h media-object-glue.h $(service_DATA)

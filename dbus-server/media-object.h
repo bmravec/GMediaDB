@@ -52,6 +52,7 @@ struct _MediaObjectClass {
     GObjectClass parent;
     
     void (*media_added) (MediaObject *mo, guint ident);
+    void (*media_updated) (MediaObject *mo, guint ident);
     void (*media_removed) (MediaObject *mo, guint ident);
 };
 
