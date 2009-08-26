@@ -1,5 +1,5 @@
 AC_PREREQ(2.59)
-AC_INIT([gmediadb],[0.5])
+AC_INIT([gmediadb],[0.6])
 AC_CONFIG_SRCDIR([gmediadb/gmediadb.c])
 AM_INIT_AUTOMAKE([dist-bzip2])
 CFLAGS="$CFLAGS -g"
