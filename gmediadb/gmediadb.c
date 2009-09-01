@@ -556,8 +556,17 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
     gchar *stag = g_strjoinv (",", tags);
     gchar *sval = gcharstar_to_string (vals);
 
-    gchar *stmt = g_strdup_printf ("INSERT INTO %s (%s) VALUES (%s) WHERE id=%d;",
-        self->priv->mtype, stag, sval, id);
+    GString *sstmt = g_string_new ("UPDATE ");
+    g_string_append_printf (sstmt, "%s SET ", self->priv->mtype);
+
+    gint i;
+    for (i = 0; tags[i+1]; i++) {
+        g_string_append_printf (sstmt, "%s=\"%s\",", tags[i], vals[i]);
+    }
+    g_string_append_printf (sstmt, "%s=\"%s\" WHERE id=%d;", tags[i], vals[i], id);
+
+    gchar *stmt = sstmt->str;
+    g_string_free (sstmt, FALSE);
 
     int rv = sqlite3_exec (self->priv->db, stmt, NULL, NULL, &errmsg);
 
