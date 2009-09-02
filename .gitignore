@@ -18,3 +18,5 @@ ltmain.sh
 m4
 missing
 libtool
+*.tar.bz2
+*.tar.gz
