@@ -148,10 +148,8 @@ main (int argc, char *argv[])
     GMediaDB *gdb;
     
     g_type_init ();
-    if (!g_thread_supported ())
-        g_thread_init (NULL);
     
-    dbus_g_thread_init ();
+//    dbus_g_thread_init ();
     
     gdb = gmediadb_new ();
     
