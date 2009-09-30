@@ -61,7 +61,7 @@ GType media_object_get_type (void);
 
 gboolean media_object_add_entry (MediaObject *self, guint ident, GHashTable *info, GError **error);
 gboolean media_object_update_entry (MediaObject *self, guint ident, GHashTable *info, GError **error);
-gboolean media_object_remove_entry (MediaObject *self, guint ident, GHashTable *info, GError **error);
+gboolean media_object_remove_entry (MediaObject *self, guint ident, GError **error);
 
 gboolean media_object_ref (MediaObject *self, GError **error);
 gboolean media_object_unref (MediaObject *self, GError **error);

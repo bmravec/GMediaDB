@@ -64,7 +64,7 @@ media_object_class_init (MediaObjectClass *klass)
     signal_media_removed = g_signal_new ("media_removed", G_TYPE_FROM_CLASS (klass),
         G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, media_removed),
         NULL, NULL, g_cclosure_marshal_VOID__UINT,
-        G_TYPE_NONE, 2, G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE);
+        G_TYPE_NONE, 1, G_TYPE_UINT);
 
     dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
                                      &dbus_glib_media_object_object_info);
@@ -106,9 +106,9 @@ media_object_update_entry (MediaObject *self, guint ident, GHashTable *info, GEr
 }
 
 gboolean
-media_object_remove_entry (MediaObject *self, guint ident, GHashTable *info, GError **error)
+media_object_remove_entry (MediaObject *self, guint ident, GError **error)
 {
-    g_signal_emit (G_OBJECT (self), signal_media_removed, 0, ident, info);
+    g_signal_emit (G_OBJECT (self), signal_media_removed, 0, ident);
 }
 
 gboolean

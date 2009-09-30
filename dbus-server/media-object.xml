@@ -14,7 +14,6 @@
         </method>
         <method name="remove_entry">
             <arg name="ident" type="u"/>
-            <arg name="info" type="a{ss}"/>
         </method>
         <signal name="media_added">
             <arg name="ident" type="u"/>
@@ -22,7 +21,6 @@
         </signal>
         <signal name="media_removed">
             <arg name="ident" type="u"/>
-            <arg name="info" type="a{ss}"/>
         </signal>
         <signal name="media_updated">
             <arg name="ident" type="u"/>
