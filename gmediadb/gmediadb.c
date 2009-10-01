@@ -18,7 +18,11 @@
  *      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
  */
 
-#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
+#include <sys/file.h>
+
 #include "gmediadb.h"
 
 #include <dbus/dbus-glib.h>
@@ -30,6 +34,13 @@ struct _GMediaDBPrivate {
     DBusGProxy *mo_proxy;
     DBusGConnection *conn;
 
+    GHashTable *table;
+
+    gchar *fpath;
+    int fd;
+
+    int nid;
+
     gchar *mtype;
 };
 
@@ -38,13 +49,26 @@ static guint signal_update;
 static guint signal_remove;
 
 void
-media_added_cb (DBusGProxy *proxy, guint id, gpointer user_data)
+media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, gpointer user_data)
 {
+    g_print ("media_added_cb\n");
+
+    GList *ki, *values;
+    GList *vi, *keys;
+
+    values = g_hash_table_get_values (info);
+    keys = g_hash_table_get_keys (info);
+
+    for (ki = keys, vi = values; ki; ki = ki->next, vi = vi->next) {
+        g_print ("%s : %s\n", (gchar*) ki->data, (gchar*) vi->data);
+    }
+    g_print ("-------------\n");
+
     g_signal_emit (G_OBJECT (user_data), signal_add, 0, id);
 }
 
 void
-media_updated_cb (DBusGProxy *proxy, guint id, gpointer user_data)
+media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, gpointer user_data)
 {
     g_signal_emit (G_OBJECT (user_data), signal_update, 0, id);
 }
@@ -110,6 +134,9 @@ gmediadb_init (GMediaDB *self)
 
     self->priv->db_proxy = dbus_g_proxy_new_for_name (self->priv->conn,
         "org.gnome.GMediaDB", "/org/gnome/GMediaDB", "org.gnome.GMediaDB");
+
+    self->priv->table = g_hash_table_new (g_int_hash, g_int_equal);
+    self->priv->nid = 1;
 }
 
 GMediaDB*
@@ -137,28 +164,34 @@ gmediadb_new (const gchar *mediatype)
         return NULL;
     }
 
-    gchar *path = g_strdup_printf ("%s/gmediadb/%s.db", g_get_user_config_dir (), self->priv->mtype);
-    FILE *fptr = fopen (path, "r");
-    if (!fptr) {
+    self->priv->fpath = g_strdup_printf ("%s/gmediadb/%s.db", g_get_user_config_dir (), self->priv->mtype);
+
+    self->priv->fd = open (self->priv->fpath, O_CREAT | O_RDONLY);
+    if (self->priv->fd != -1) {
         //TODO: Read data from file
-        fclose (fptr);
+        flock (self->priv->fd, LOCK_SH);
+
+        dbus_g_object_register_marshaller (g_cclosure_marshal_VOID__UINT_POINTER,
+            G_TYPE_NONE, G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
+
+        dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_added",
+            G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
+        dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_updated",
+            G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
+        dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_removed",
+            G_TYPE_UINT, G_TYPE_INVALID);
+
+        dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_added",
+            G_CALLBACK (media_added_cb), self, NULL);
+        dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_updated",
+            G_CALLBACK (media_updated_cb), self, NULL);
+        dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_removed",
+            G_CALLBACK (media_removed_cb), self, NULL);
+
+        flock (self->priv->fd, LOCK_UN);
     } else {
-        //TODO: Create empty table
+        g_print ("Init Error Occured\n");
     }
-
-    dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_added",
-        G_TYPE_UINT, G_TYPE_INVALID);
-    dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_updated",
-        G_TYPE_UINT, G_TYPE_INVALID);
-    dbus_g_proxy_add_signal (self->priv->mo_proxy, "media_removed",
-        G_TYPE_UINT, G_TYPE_INVALID);
-
-    dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_added",
-        G_CALLBACK (media_added_cb), self, NULL);
-    dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_updated",
-        G_CALLBACK (media_updated_cb), self, NULL);
-    dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_removed",
-        G_CALLBACK (media_removed_cb), self, NULL);
 
     return self;
 }
@@ -166,30 +199,150 @@ gmediadb_new (const gchar *mediatype)
 gchar**
 gmediadb_get_tags (GMediaDB *self)
 {
+    g_print ("Get Tags\n");
     return NULL;
 }
 
 GPtrArray*
 gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[])
 {
-    return NULL;
+    GPtrArray *array = g_ptr_array_new ();
+    gint num_keys = 0;
+    while (tags[num_keys++]);
+    num_keys--;
+
+    flock (self->priv->fd, LOCK_SH);
+
+    gint i, j;
+    for (i = 0; i < ids->len; i++) {
+        GHashTable *tentry = g_hash_table_lookup (self->priv->table, &g_array_index (ids, gint, i));
+
+        if (!tentry) {
+            continue;
+        }
+
+        gchar **entry = g_new0 (gchar*, num_keys);
+
+        for (j = 0; j < num_keys; j++) {
+            if (!g_strcmp0 (tags[j], "id")) {
+                entry[j] = g_strdup_printf ("%d", g_array_index (ids, gint, i));
+            } else {
+                entry[j] = g_hash_table_lookup (tentry, tags[j]);
+            }
+        }
+
+        g_ptr_array_add (array, entry);
+    }
+
+    flock (self->priv->fd, LOCK_UN);
+
+    return array;
 }
 
 gchar**
 gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[])
 {
-    return NULL;
+    g_print ("GMediadb get_entry: %d\n", id);
+
+    gint num_keys = 0, j;
+    while (tags[num_keys++]);
+    num_keys--;
+
+    flock (self->priv->fd, LOCK_SH);
+
+    GHashTable *tentry = g_hash_table_lookup (self->priv->table, &id);
+
+    g_print ("%x\n", tentry);
+
+    if (!tentry) {
+        return NULL;
+    }
+
+    gchar **entry = g_new0 (gchar*, num_keys);
+
+    for (j = 0; j < num_keys; j++) {
+        if (!g_strcmp0 (tags[j], "id")) {
+            entry[j] = g_strdup_printf ("%d", id);
+        } else {
+            entry[j] = g_hash_table_lookup (tentry, tags[j]);
+        }
+        g_print ("%s: %s\n", tags[j], entry[j]);
+    }
+
+    flock (self->priv->fd, LOCK_UN);
+
+    return entry;
 }
 
 GPtrArray*
 gmediadb_get_all_entries (GMediaDB *self, gchar *tags[])
 {
-    return NULL;
+    g_print ("Get All Entries\n");
+    GList *iter, *values, *i2, *keys;
+    gint i, j, num_keys = 0;
+
+    GPtrArray *array = g_ptr_array_new ();
+
+    while (tags[num_keys++]);
+    num_keys--;
+
+    flock (self->priv->fd, LOCK_SH);
+
+    values = g_hash_table_get_values (self->priv->table);
+    keys = g_hash_table_get_keys (self->priv->table);
+
+    for (iter = values, i2 = keys; iter; iter = iter->next, i2 = i2->next) {
+        GHashTable *tentry = (GHashTable*) iter->data;
+
+        gchar **entry = g_new0 (gchar*, num_keys);
+
+        for (j = 0; j < num_keys; j++) {
+            if (!g_strcmp0 (tags[j], "id")) {
+                entry[j] = g_strdup_printf ("%d", *((gint*) i2->data));
+            } else {
+                entry[j] = g_hash_table_lookup (tentry, tags[j]);
+            }
+        }
+
+        g_ptr_array_add (array, entry);
+    }
+
+    flock (self->priv->fd, LOCK_UN);
+
+    return array;
 }
 
 gboolean
 gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 {
+    g_print ("GMediaDB Add Entry: Start\n");
+
+    GHashTable *nentry = g_hash_table_new (g_str_hash, g_str_equal);
+
+    gint i;
+    for (i = 0; tags[i]; i++) {
+        g_hash_table_insert (nentry, g_strdup (tags[i]), g_strdup (vals[i]));
+    }
+
+    flock (self->priv->fd, LOCK_EX);
+
+    gint *nid = g_new0 (gint, 1);
+    *nid = self->priv->nid++;
+
+    g_hash_table_insert (self->priv->table, nid, nentry);
+
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", NULL,
+        G_TYPE_UINT, *nid,
+        DBUS_TYPE_G_STRING_STRING_HASHTABLE, nentry,
+        G_TYPE_INVALID,
+        G_TYPE_INVALID)) {
+        g_printerr ("Unable to send add MediaObject: %d\n", *nid);
+    }
+
+    flock (self->priv->fd, LOCK_UN);
+
+    g_print ("GMediaDB Add Entry: Done\n");
+
     return FALSE;
 }
 
