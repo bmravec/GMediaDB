@@ -49,6 +49,52 @@ static guint signal_update;
 static guint signal_remove;
 
 void
+write_entry (int fd, gint id, GHashTable *table)
+{
+    GList *k, *ki, *v, *vi;
+    gint i, size;
+    gchar *str;
+
+    size = g_hash_table_size (table);
+    k = g_hash_table_get_keys (table);
+    v = g_hash_table_get_values (table);
+
+    write (fd, &id, sizeof (gint));
+    write (fd, &size, sizeof (gint));
+
+    for (ki = k, vi = v; ki; ki = ki->next, vi = vi->next) {
+        str = (gchar*) ki->data;
+        for (i = 0; str[i]; i++);
+        write (fd, &i, sizeof (gint));
+        write (fd, str, i);
+
+        str = (gchar*) vi->data;
+        for (i = 0; str[i]; i++);
+        write (fd, &i, sizeof (gint));
+        write (fd, str, i + 1);
+    }
+}
+
+GHashTable*
+read_entry (int fd)
+{
+    gint id, len, num;
+    gint i, j;
+
+    len = read (fd, &id, sizeof (gint));
+    if (len == 0)
+        return NULL;
+
+    len = read (fd, &num, sizeof (gint));
+    if (len == 0)
+        return NULL;
+
+    g_print ("ID: %d : Keys: %d\n", id, num);
+
+    return NULL;
+}
+
+void
 media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 {
     GList *ki, *values;
@@ -170,10 +216,12 @@ gmediadb_new (const gchar *mediatype)
 
     self->priv->fpath = g_strdup_printf ("%s/gmediadb/%s.db", g_get_user_config_dir (), self->priv->mtype);
 
-    self->priv->fd = open (self->priv->fpath, O_CREAT | O_RDONLY);
+    int fd = open (self->priv->fpath, O_CREAT | O_RDONLY);
     if (self->priv->fd != -1) {
         //TODO: Read data from file
-        flock (self->priv->fd, LOCK_SH);
+        flock (fd, LOCK_SH);
+
+        read_entry (fd);
 
         dbus_g_object_register_marshaller (g_cclosure_marshal_VOID__UINT_POINTER,
             G_TYPE_NONE, G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
@@ -192,7 +240,8 @@ gmediadb_new (const gchar *mediatype)
         dbus_g_proxy_connect_signal (self->priv->mo_proxy, "media_removed",
             G_CALLBACK (media_removed_cb), self, NULL);
 
-        flock (self->priv->fd, LOCK_UN);
+        flock (fd, LOCK_UN);
+        close (fd);
     } else {
         g_print ("Init Error Occured\n");
     }
@@ -216,8 +265,6 @@ gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[])
     while (tags[num_keys++]);
     num_keys--;
 
-    flock (self->priv->fd, LOCK_SH);
-
     gint i, j;
     for (i = 0; i < ids->len; i++) {
         GHashTable *tentry = g_hash_table_lookup (self->priv->table, &g_array_index (ids, gint, i));
@@ -239,8 +286,6 @@ gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[])
         g_ptr_array_add (array, entry);
     }
 
-    flock (self->priv->fd, LOCK_UN);
-
     return array;
 }
 
@@ -250,8 +295,6 @@ gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[])
     gint num_keys = 0, j;
     while (tags[num_keys++]);
     num_keys--;
-
-    flock (self->priv->fd, LOCK_SH);
 
     GHashTable *tentry = g_hash_table_lookup (self->priv->table, &id);
 
@@ -269,8 +312,6 @@ gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[])
         }
     }
 
-    flock (self->priv->fd, LOCK_UN);
-
     return entry;
 }
 
@@ -284,8 +325,6 @@ gmediadb_get_all_entries (GMediaDB *self, gchar *tags[])
 
     while (tags[num_keys++]);
     num_keys--;
-
-    flock (self->priv->fd, LOCK_SH);
 
     values = g_hash_table_get_values (self->priv->table);
     keys = g_hash_table_get_keys (self->priv->table);
@@ -306,8 +345,6 @@ gmediadb_get_all_entries (GMediaDB *self, gchar *tags[])
         g_ptr_array_add (array, entry);
     }
 
-    flock (self->priv->fd, LOCK_UN);
-
     return array;
 }
 
@@ -321,10 +358,13 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
         g_hash_table_insert (nentry, tags[i], vals[i]);
     }
 
-    flock (self->priv->fd, LOCK_EX);
+    int fd = open (self->priv->fpath, O_CREAT | O_WRONLY | O_APPEND);
+    flock (fd, LOCK_EX);
 
     gint *nid = g_new0 (gint, 1);
     *nid = self->priv->nid++;
+
+    write_entry (fd, *nid, nentry);
 
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", NULL,
         G_TYPE_UINT, *nid,
@@ -334,7 +374,8 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
         g_printerr ("Unable to send add MediaObject: %d\n", *nid);
     }
 
-    flock (self->priv->fd, LOCK_UN);
+    flock (fd, LOCK_UN);
+    close (fd);
 
     g_hash_table_unref (nentry);
 
