@@ -44,6 +44,12 @@ struct _GMediaDBPrivate {
     gchar *mtype;
 };
 
+typedef struct _DBEntry DBEntry;
+struct _DBEntry {
+    gint id;
+    GHashTable *info;
+};
+
 static guint signal_add;
 static guint signal_update;
 static guint signal_remove;
@@ -71,17 +77,17 @@ write_entry (int fd, gint id, GHashTable *table)
         str = (gchar*) vi->data;
         for (i = 0; str[i]; i++);
         write (fd, &i, sizeof (gint));
-        write (fd, str, i + 1);
+        write (fd, str, i);
     }
 }
 
 GHashTable*
-read_entry (int fd)
+read_entry (int fd, int *id)
 {
-    gint id, len, num;
+    gint len, num, slen;
     gint i, j;
 
-    len = read (fd, &id, sizeof (gint));
+    len = read (fd, id, sizeof (gint));
     if (len == 0)
         return NULL;
 
@@ -89,9 +95,23 @@ read_entry (int fd)
     if (len == 0)
         return NULL;
 
-    g_print ("ID: %d : Keys: %d\n", id, num);
+    GHashTable *info = g_hash_table_new (g_str_hash, g_str_equal);
 
-    return NULL;
+    while (num-- > 0) {
+        len = read (fd, &slen, sizeof (gint));
+
+        gchar *k = g_new0 (gchar, slen + 1);
+        len = read (fd, k, slen);
+
+        len = read (fd, &slen, sizeof (gint));
+
+        gchar *v = g_new0 (gchar, slen + 1);
+        len = read (fd, v, slen);
+
+        g_hash_table_insert (info, k, v);
+    }
+
+    return info;
 }
 
 void
@@ -221,7 +241,13 @@ gmediadb_new (const gchar *mediatype)
         //TODO: Read data from file
         flock (fd, LOCK_SH);
 
-        read_entry (fd);
+        GHashTable *info;
+        gint rid;
+        while ((info = read_entry (fd, &rid)) != NULL) {
+            gint *id = g_new0 (gint, 1);
+            *id = rid;
+            g_hash_table_insert (self->priv->table, id, info);
+        }
 
         dbus_g_object_register_marshaller (g_cclosure_marshal_VOID__UINT_POINTER,
             G_TYPE_NONE, G_TYPE_UINT, DBUS_TYPE_G_STRING_STRING_HASHTABLE, G_TYPE_INVALID);
