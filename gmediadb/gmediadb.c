@@ -42,12 +42,8 @@ struct _GMediaDBPrivate {
     int nid;
 
     gchar *mtype;
-};
 
-typedef struct _DBEntry DBEntry;
-struct _DBEntry {
-    gint id;
-    GHashTable *info;
+    GStringChunk *sc;
 };
 
 static guint signal_add;
@@ -122,10 +118,12 @@ media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
     vi = g_hash_table_get_values (info);
     ki = g_hash_table_get_keys (info);
 
-    GHashTable *nentry = g_hash_table_new (g_str_hash, g_str_equal);
+    GHashTable *nentry = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
 
     for (; ki && vi; ki = ki->next, vi = vi->next) {
-        g_hash_table_insert (nentry, g_strdup ((gchar*) ki->data), g_strdup ((gchar*) vi->data));
+        g_hash_table_insert (nentry,
+            g_string_chunk_insert_const (self->priv->sc, (gchar*) ki->data),
+            g_string_chunk_insert_const (self->priv->sc, (gchar*) vi->data));
     }
 
     gint *nid = g_new0 (gint, 1);
@@ -151,7 +149,9 @@ media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
     }
 
     for (; ki; ki = ki->next, vi = vi->next) {
-        g_hash_table_insert (entry, g_strdup ((gchar*) ki->data), g_strdup ((gchar*) vi->data));
+        g_hash_table_insert (entry,
+            g_string_chunk_insert_const (self->priv->sc, (gchar*) ki->data),
+            g_string_chunk_insert_const (self->priv->sc, (gchar*) vi->data));
     }
 
     g_signal_emit (self, signal_update, 0, id);
@@ -160,6 +160,12 @@ media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 void
 media_removed_cb (DBusGProxy *proxy, guint id, GMediaDB *self)
 {
+    GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
+
+    if (entry) {
+        g_hash_table_remove (self->priv->table, &id);
+    }
+
     g_signal_emit (self, signal_remove, 0, id);
 }
 
@@ -221,6 +227,8 @@ gmediadb_init (GMediaDB *self)
 
     self->priv->table = g_hash_table_new (g_int_hash, g_int_equal);
     self->priv->nid = 1;
+
+    self->priv->sc = g_string_chunk_new (5 * 1024);
 }
 
 GMediaDB*
@@ -428,13 +436,14 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
     GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
 
     if (!entry) {
-        g_print ("ID %d not found\n", id);
         return FALSE;
     }
 
     gint i;
     for (i = 0; tags[i]; i++) {
-        g_hash_table_insert (entry, g_strdup (tags[i]), g_strdup (vals[i]));
+        g_hash_table_insert (entry,
+            g_string_chunk_insert_const (self->priv->sc, tags[i]),
+            g_string_chunk_insert_const (self->priv->sc, vals[i]));
     }
 
     int fd = open (self->priv->fpath, O_CREAT | O_WRONLY | O_TRUNC);
@@ -449,10 +458,8 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 
     GError *err = NULL;
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "update_entry", &err,
-        G_TYPE_UINT, id,
-        DBUS_TYPE_G_STRING_STRING_HASHTABLE, entry,
-        G_TYPE_INVALID,
-        G_TYPE_INVALID)) {
+        G_TYPE_UINT, id, DBUS_TYPE_G_STRING_STRING_HASHTABLE, entry,
+        G_TYPE_INVALID, G_TYPE_INVALID)) {
         g_printerr ("Unable to send update MediaObject: %d: %s\n", id, err->message);
         g_error_free (err);
         err = NULL;
@@ -467,8 +474,6 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 gboolean
 gmediadb_remove_entry (GMediaDB *self, guint id)
 {
-    g_print ("Removing entry %d\n", id);
-
     if (!g_hash_table_remove (self->priv->table, &id)) {
         return FALSE;
     }
