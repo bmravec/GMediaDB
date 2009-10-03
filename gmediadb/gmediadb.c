@@ -117,15 +117,14 @@ read_entry (int fd, int *id)
 void
 media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 {
-    GList *ki, *values;
-    GList *vi, *keys;
+    GList *ki, *vi;
 
-    values = g_hash_table_get_values (info);
-    keys = g_hash_table_get_keys (info);
+    vi = g_hash_table_get_values (info);
+    ki = g_hash_table_get_keys (info);
 
     GHashTable *nentry = g_hash_table_new (g_str_hash, g_str_equal);
 
-    for (ki = keys, vi = values; ki; ki = ki->next, vi = vi->next) {
+    for (; ki && vi; ki = ki->next, vi = vi->next) {
         g_hash_table_insert (nentry, g_strdup ((gchar*) ki->data), g_strdup ((gchar*) vi->data));
     }
 
@@ -140,11 +139,10 @@ media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 void
 media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 {
-    GList *ki, *values;
-    GList *vi, *keys;
+    GList *ki, *vi;
 
-    values = g_hash_table_get_values (info);
-    keys = g_hash_table_get_keys (info);
+    ki = g_hash_table_get_keys (info);
+    vi = g_hash_table_get_values (info);
 
     GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
 
@@ -152,7 +150,7 @@ media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
         return;
     }
 
-    for (ki = keys, vi = values; ki; ki = ki->next, vi = vi->next) {
+    for (; ki; ki = ki->next, vi = vi->next) {
         g_hash_table_insert (entry, g_strdup ((gchar*) ki->data), g_strdup ((gchar*) vi->data));
     }
 
@@ -436,7 +434,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 
     gint i;
     for (i = 0; tags[i]; i++) {
-        g_hash_table_replace (entry, tags[i], vals[i]);
+        g_hash_table_insert (entry, g_strdup (tags[i]), g_strdup (vals[i]));
     }
 
     int fd = open (self->priv->fpath, O_CREAT | O_WRONLY | O_TRUNC);
