@@ -88,11 +88,11 @@ read_entry (int fd, int *id)
     gint i, j;
 
     len = read (fd, id, sizeof (gint));
-    if (len == 0)
+    if (len <= 0)
         return NULL;
 
     len = read (fd, &num, sizeof (gint));
-    if (len == 0)
+    if (len <= 0)
         return NULL;
 
     GHashTable *info = g_hash_table_new (g_str_hash, g_str_equal);
@@ -140,6 +140,22 @@ media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 void
 media_updated_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 {
+    GList *ki, *values;
+    GList *vi, *keys;
+
+    values = g_hash_table_get_values (info);
+    keys = g_hash_table_get_keys (info);
+
+    GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
+
+    if (!entry) {
+        return;
+    }
+
+    for (ki = keys, vi = values; ki; ki = ki->next, vi = vi->next) {
+        g_hash_table_insert (entry, g_strdup ((gchar*) ki->data), g_strdup ((gchar*) vi->data));
+    }
+
     g_signal_emit (self, signal_update, 0, id);
 }
 
@@ -405,17 +421,79 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 
     g_hash_table_unref (nentry);
 
-    return FALSE;
+    return TRUE;
 }
 
 gboolean
 gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 {
-    return FALSE;
+    GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
+
+    if (!entry) {
+        g_print ("ID %d not found\n", id);
+        return FALSE;
+    }
+
+    gint i;
+    for (i = 0; tags[i]; i++) {
+        g_hash_table_replace (entry, tags[i], vals[i]);
+    }
+
+    int fd = open (self->priv->fpath, O_CREAT | O_WRONLY | O_TRUNC);
+    flock (fd, LOCK_EX);
+
+    GList *tk = g_hash_table_get_keys (self->priv->table);
+    GList *tv = g_hash_table_get_values (self->priv->table);
+
+    for (; tk; tk = tk->next, tv = tv->next) {
+        write_entry (fd, *((gint*) tk->data), (GHashTable*) tv->data);
+    }
+
+    GError *err = NULL;
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "update_entry", &err,
+        G_TYPE_UINT, id,
+        DBUS_TYPE_G_STRING_STRING_HASHTABLE, entry,
+        G_TYPE_INVALID,
+        G_TYPE_INVALID)) {
+        g_printerr ("Unable to send update MediaObject: %d: %s\n", id, err->message);
+        g_error_free (err);
+        err = NULL;
+    }
+
+    flock (fd, LOCK_UN);
+    close (fd);
+
+    return TRUE;
 }
 
 gboolean
 gmediadb_remove_entry (GMediaDB *self, guint id)
 {
-    return FALSE;
+    g_print ("Removing entry %d\n", id);
+
+    if (!g_hash_table_remove (self->priv->table, &id)) {
+        return FALSE;
+    }
+
+    int fd = open (self->priv->fpath, O_CREAT | O_WRONLY | O_TRUNC);
+    flock (fd, LOCK_EX);
+
+    GList *tk = g_hash_table_get_keys (self->priv->table);
+    GList *tv = g_hash_table_get_values (self->priv->table);
+
+    for (; tk; tk = tk->next, tv = tv->next) {
+        write_entry (fd, *((gint*) tk->data), (GHashTable*) tv->data);
+    }
+
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "remove_entry", NULL,
+        G_TYPE_UINT, id,
+        G_TYPE_INVALID,
+        G_TYPE_INVALID)) {
+        g_printerr ("Unable to send remove MediaObject: %d\n", id);
+    }
+
+    flock (fd, LOCK_UN);
+    close (fd);
+
+    return TRUE;
 }
