@@ -414,12 +414,15 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 
     write_entry (fd, *nid, nentry);
 
-    if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", NULL,
+    GError *err = NULL;
+    if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", &err,
         G_TYPE_UINT, *nid,
         DBUS_TYPE_G_STRING_STRING_HASHTABLE, nentry,
         G_TYPE_INVALID,
         G_TYPE_INVALID)) {
-        g_printerr ("Unable to send add MediaObject: %d\n", *nid);
+        g_printerr ("Unable to send add MediaObject: %d: %s\n", *nid, err->message);
+        g_error_free (err);
+        err = NULL;
     }
 
     flock (fd, LOCK_UN);
