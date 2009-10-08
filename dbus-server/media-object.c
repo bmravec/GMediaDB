@@ -19,6 +19,10 @@
  *      MA 02110-1301, USA.
  */
 
+#include <sys/file.h>
+#include <sys/sem.h>
+#include <semaphore.h>
+
 #include "gmediadb.h"
 #include "media-object.h"
 #include "media-object-glue.h"
@@ -31,9 +35,10 @@ struct _MediaObjectPrivate {
     gchar *media_type;
     GMediaDB *gdb;
     gint ref_cnt;
+    gboolean mod;
 };
 
-static guint signal_media_added, signal_media_updated, signal_media_removed;
+static guint signal_media_added, signal_media_updated, signal_media_removed, signal_flush;
 
 static void
 media_object_finalize (GObject *object)
@@ -66,6 +71,10 @@ media_object_class_init (MediaObjectClass *klass)
         NULL, NULL, g_cclosure_marshal_VOID__UINT,
         G_TYPE_NONE, 1, G_TYPE_UINT);
 
+    signal_flush = g_signal_new ("flush", G_TYPE_FROM_CLASS (klass),
+        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, flush),
+        NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+
     dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
                                      &dbus_glib_media_object_object_info);
 }
@@ -76,6 +85,7 @@ media_object_init (MediaObject *self)
     self->priv = MEDIA_OBJECT_GET_PRIVATE (self);
 
     self->priv->ref_cnt = 0;
+    self->priv->mod = FALSE;
 }
 
 MediaObject *
@@ -90,24 +100,39 @@ media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
     dbus_g_connection_register_g_object (conn, path, G_OBJECT (self));
     g_free (path);
 
+    gchar *astr = g_strdup_printf ("/gmediadb.%s.A", self->priv->media_type);
+    sem_unlink (astr);
+    sem_t *am = sem_open (astr, O_CREAT, 0644, 1);
+    sem_close (am);
+    g_free (astr);
+
+    gchar *fstr = g_strdup_printf ("/gmediadb.%s.F", self->priv->media_type);
+    sem_unlink (fstr);
+    sem_t *fm = sem_open (fstr, O_CREAT, 0644, 1);
+    sem_close (fm);
+    g_free (fstr);
+
     return self;
 }
 
 gboolean
 media_object_add_entry (MediaObject *self, guint ident, GHashTable *info, GError **error)
 {
+    self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_added, 0, ident, info);
 }
 
 gboolean
 media_object_update_entry (MediaObject *self, guint ident, GHashTable *info, GError **error)
 {
+    self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_updated, 0, ident, info);
 }
 
 gboolean
 media_object_remove_entry (MediaObject *self, guint ident, GError **error)
 {
+    self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_removed, 0, ident);
 }
 
@@ -132,5 +157,34 @@ media_object_unref (MediaObject *self,
     priv->ref_cnt--;
 
     gmediadb_unref (priv->gdb);
+    return TRUE;
+}
+
+gboolean
+media_object_flush_store (MediaObject *self, GError **error)
+{
+    // If state of file is different than database, flush store to file
+
+    if (self->priv->mod) {
+        g_print ("Flush\n");
+        g_signal_emit (self, signal_flush, 0);
+    }
+
+    return TRUE;
+}
+
+gboolean
+media_object_flush_completed (MediaObject *self, GError **error)
+{
+    self->priv->mod = FALSE;
+
+    return TRUE;
+}
+
+gboolean
+media_object_has_flush_completed (MediaObject *self, gboolean *val, GError **error)
+{
+    *val = self->priv->mod ? FALSE : TRUE;
+
     return TRUE;
 }

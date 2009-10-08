@@ -15,6 +15,12 @@
         <method name="remove_entry">
             <arg name="ident" type="u"/>
         </method>
+        <method name="flush_store"/>
+        <method name="flush_completed"/>
+        <method name="has_flush_completed">
+            <arg name="val" type="b" direction="out"/>
+        </method>
+        <signal name="flush"/>
         <signal name="media_added">
             <arg name="ident" type="u"/>
             <arg name="info" type="a{ss}"/>

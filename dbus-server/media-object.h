@@ -54,6 +54,7 @@ struct _MediaObjectClass {
     void (*media_added) (MediaObject *mo, guint ident);
     void (*media_updated) (MediaObject *mo, guint ident);
     void (*media_removed) (MediaObject *mo, guint ident);
+    void (*flush) (MediaObject *mo);
 };
 
 MediaObject *media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb);
@@ -65,6 +66,10 @@ gboolean media_object_remove_entry (MediaObject *self, guint ident, GError **err
 
 gboolean media_object_ref (MediaObject *self, GError **error);
 gboolean media_object_unref (MediaObject *self, GError **error);
+
+gboolean media_object_flush_store (MediaObject *self, GError **error);
+gboolean media_object_flush_completed (MediaObject *self, GError **error);
+gboolean media_object_has_flush_completed (MediaObject *self, gboolean *val, GError **error);
 
 G_END_DECLS
 
