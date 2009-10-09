@@ -215,6 +215,7 @@ gmediadb_finalize (GObject *object)
     GMediaDB *self = GMEDIADB (object);
 
     //TODO: Write data to disk and free associated memory
+    media_flush_cb (self->priv->mo_proxy, self);
 
     if (self->priv->mo_proxy) {
         dbus_g_proxy_call (self->priv->mo_proxy, "unref", NULL,
@@ -255,8 +256,6 @@ static void
 gmediadb_init (GMediaDB *self)
 {
     self->priv = G_TYPE_INSTANCE_GET_PRIVATE((self), GMEDIADB_TYPE, GMediaDBPrivate);
-
-    media_flush_cb (self->priv->mo_proxy, self);
 
     self->priv->conn = dbus_g_bus_get (DBUS_BUS_SESSION, NULL);
     if (!self->priv->conn) {
