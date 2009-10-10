@@ -44,9 +44,7 @@ struct _GMediaDBPrivate {
     GHashTable *table;
 
     gchar *fpath;
-    int fd;
 
-    int sem_id;
     sem_t *fm, *am;
 
     int nid;
@@ -88,7 +86,7 @@ write_entry (int fd, gint id, GHashTable *table)
 }
 
 GHashTable*
-read_entry (int fd, int *id)
+read_entry (int fd, int *id, GStringChunk *sc)
 {
     gint len, num, slen;
     gint i, j;
@@ -114,7 +112,12 @@ read_entry (int fd, int *id)
         gchar *v = g_new0 (gchar, slen + 1);
         len = read (fd, v, slen);
 
-        g_hash_table_insert (info, k, v);
+        g_hash_table_insert (info,
+            g_string_chunk_insert_const (sc, k),
+            g_string_chunk_insert_const (sc, v));
+
+        g_free (k);
+        g_free (v);
     }
 
     return info;
@@ -214,17 +217,51 @@ gmediadb_finalize (GObject *object)
 {
     GMediaDB *self = GMEDIADB (object);
 
-    //TODO: Write data to disk and free associated memory
     media_flush_cb (self->priv->mo_proxy, self);
+
+    dbus_g_proxy_disconnect_signal (self->priv->mo_proxy, "media_added",
+       G_CALLBACK (media_added_cb), self);
+    dbus_g_proxy_disconnect_signal (self->priv->mo_proxy, "media_updated",
+        G_CALLBACK (media_updated_cb), self);
+    dbus_g_proxy_disconnect_signal (self->priv->mo_proxy, "media_removed",
+        G_CALLBACK (media_removed_cb), self);
+    dbus_g_proxy_disconnect_signal (self->priv->mo_proxy, "flush",
+        G_CALLBACK (media_flush_cb), self);
+
+    g_hash_table_destroy (self->priv->table);
+    self->priv->table = NULL;
+
+    sem_close (self->priv->fm);
+    self->priv->fm = NULL;
+
+    sem_close (self->priv->am);
+    self->priv->am = NULL;
 
     if (self->priv->mo_proxy) {
         dbus_g_proxy_call (self->priv->mo_proxy, "unref", NULL,
             G_TYPE_INVALID, G_TYPE_INVALID);
-
+        g_object_unref (self->priv->mo_proxy);
         self->priv->mo_proxy = NULL;
     }
 
+    if (self->priv->db_proxy) {
+        g_object_unref (self->priv->db_proxy);
+        self->priv->db_proxy = NULL;
+    }
+
+    if (self->priv->conn) {
+        dbus_g_connection_unref (self->priv->conn);
+        self->priv->conn = NULL;
+    }
+
     g_free (self->priv->mtype);
+    self->priv->mtype = NULL;
+
+    g_free (self->priv->fpath);
+    self->priv->fpath = NULL;
+
+    g_string_chunk_clear (self->priv->sc);
+    self->priv->sc = NULL;
 
     G_OBJECT_CLASS (gmediadb_parent_class)->finalize (object);
 }
@@ -266,7 +303,7 @@ gmediadb_init (GMediaDB *self)
     self->priv->db_proxy = dbus_g_proxy_new_for_name (self->priv->conn,
         "org.gnome.GMediaDB", "/org/gnome/GMediaDB", "org.gnome.GMediaDB");
 
-    self->priv->table = g_hash_table_new (g_int_hash, g_int_equal);
+    self->priv->table = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, (GDestroyNotify) g_hash_table_destroy);
     self->priv->nid = 1;
 
     self->priv->sc = g_string_chunk_new (5 * 1024);
@@ -334,10 +371,10 @@ gmediadb_new (const gchar *mediatype)
     }
 
     int fd = open (self->priv->fpath, O_CREAT | O_RDONLY, 0644);
-    if (self->priv->fd != -1) {
+    if (fd != -1) {
         GHashTable *info;
         gint rid;
-        while ((info = read_entry (fd, &rid)) != NULL) {
+        while ((info = read_entry (fd, &rid, self->priv->sc)) != NULL) {
             gint *id = g_new0 (gint, 1);
             *id = rid;
             g_hash_table_insert (self->priv->table, id, info);
@@ -369,6 +406,9 @@ gmediadb_new (const gchar *mediatype)
     }
 
     sem_post (self->priv->am);
+
+    //TODO: Set nid correctly or perform scan on insertion into table,
+    //      should probably remove variable and do a check.
 
     return self;
 }
