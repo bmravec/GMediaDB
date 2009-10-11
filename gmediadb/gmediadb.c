@@ -43,13 +43,10 @@ struct _GMediaDBPrivate {
 
     GHashTable *table;
 
+    gchar *mtype;
     gchar *fpath;
 
     sem_t *fm, *am;
-
-    int nid;
-
-    gchar *mtype;
 
     GStringChunk *sc;
 };
@@ -61,18 +58,18 @@ static guint signal_remove;
 void
 write_entry (int fd, gint id, GHashTable *table)
 {
-    GList *k, *ki, *v, *vi;
+    GList *ki, *vi;
     gint i, size;
     gchar *str;
 
     size = g_hash_table_size (table);
-    k = g_hash_table_get_keys (table);
-    v = g_hash_table_get_values (table);
+    ki = g_hash_table_get_keys (table);
+    vi = g_hash_table_get_values (table);
 
     write (fd, &id, sizeof (gint));
     write (fd, &size, sizeof (gint));
 
-    for (ki = k, vi = v; ki; ki = ki->next, vi = vi->next) {
+    for (; ki && vi; ki = ki->next, vi = vi->next) {
         str = (gchar*) ki->data;
         for (i = 0; str[i]; i++);
         write (fd, &i, sizeof (gint));
@@ -127,6 +124,11 @@ void
 media_added_cb (DBusGProxy *proxy, guint id, GHashTable *info, GMediaDB *self)
 {
     GList *ki, *vi;
+
+    if (g_hash_table_lookup (self->priv->table, &id)) {
+        g_signal_emit (self, signal_add, 0, id);
+        return;
+    }
 
     vi = g_hash_table_get_values (info);
     ki = g_hash_table_get_keys (info);
@@ -304,7 +306,6 @@ gmediadb_init (GMediaDB *self)
         "org.gnome.GMediaDB", "/org/gnome/GMediaDB", "org.gnome.GMediaDB");
 
     self->priv->table = g_hash_table_new_full (g_int_hash, g_int_equal, g_free, (GDestroyNotify) g_hash_table_destroy);
-    self->priv->nid = 1;
 
     self->priv->sc = g_string_chunk_new (5 * 1024);
 }
@@ -406,9 +407,6 @@ gmediadb_new (const gchar *mediatype)
     }
 
     sem_post (self->priv->am);
-
-    //TODO: Set nid correctly or perform scan on insertion into table,
-    //      should probably remove variable and do a check.
 
     return self;
 }
@@ -519,13 +517,24 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 
     gint i;
     for (i = 0; tags[i]; i++) {
-        g_hash_table_insert (nentry, tags[i], vals[i]);
+        g_hash_table_insert (nentry,
+            g_string_chunk_insert_const (self->priv->sc, tags[i]),
+            g_string_chunk_insert_const (self->priv->sc, vals[i]));
     }
 
     sem_wait (self->priv->am);
 
     gint *nid = g_new0 (gint, 1);
-    *nid = self->priv->nid++;
+    *nid = 1;
+
+    GList *kl = g_hash_table_get_keys (self->priv->table);
+    for (; kl; kl = kl->next) {
+        if (*((gint*) kl->data) >= *nid) {
+            *nid = *((gint*) kl->data) + 1;
+        }
+    }
+
+    g_hash_table_insert (self->priv->table, nid, nentry);
 
     GError *err = NULL;
     if (!dbus_g_proxy_call (self->priv->mo_proxy, "add_entry", &err,
@@ -539,8 +548,6 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
     }
 
     sem_post (self->priv->am);
-
-    g_hash_table_unref (nentry);
 
     return TRUE;
 }
