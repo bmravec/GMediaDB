@@ -120,6 +120,8 @@ media_object_add_entry (MediaObject *self, guint ident, GHashTable *info, GError
 {
     self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_added, 0, ident, info);
+
+    return TRUE;
 }
 
 gboolean
@@ -127,6 +129,8 @@ media_object_update_entry (MediaObject *self, guint ident, GHashTable *info, GEr
 {
     self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_updated, 0, ident, info);
+
+    return TRUE;
 }
 
 gboolean
@@ -134,6 +138,8 @@ media_object_remove_entry (MediaObject *self, guint ident, GError **error)
 {
     self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_removed, 0, ident);
+
+    return TRUE;
 }
 
 gboolean
