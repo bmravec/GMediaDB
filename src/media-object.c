@@ -116,27 +116,10 @@ gboolean
 media_object_flush_store (MediaObject *self, GError **error)
 {
     // If state of file is different than database, flush store to file
-
     if (self->priv->mod) {
         g_print ("Flush\n");
         g_signal_emit (self, signal_flush, 0);
     }
-
-    return TRUE;
-}
-
-gboolean
-media_object_flush_completed (MediaObject *self, GError **error)
-{
-    self->priv->mod = FALSE;
-
-    return TRUE;
-}
-
-gboolean
-media_object_has_flush_completed (MediaObject *self, gboolean *val, GError **error)
-{
-    *val = self->priv->mod ? FALSE : TRUE;
 
     return TRUE;
 }

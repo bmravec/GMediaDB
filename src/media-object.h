@@ -64,8 +64,6 @@ gboolean media_object_update_entry (MediaObject *self, guint ident, GHashTable *
 gboolean media_object_remove_entry (MediaObject *self, guint ident, GError **error);
 
 gboolean media_object_flush_store (MediaObject *self, GError **error);
-gboolean media_object_flush_completed (MediaObject *self, GError **error);
-gboolean media_object_has_flush_completed (MediaObject *self, gboolean *val, GError **error);
 
 G_END_DECLS
 
