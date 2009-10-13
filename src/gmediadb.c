@@ -18,22 +18,11 @@
  *      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
  */
 
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/fcntl.h>
 #include <sys/file.h>
-#include <errno.h>
-
-#include <semaphore.h>
-
-#include <sys/ipc.h>
-#include <sys/sem.h>
+#include <dbus/dbus-glib.h>
 
 #include "gmediadb.h"
 #include "media-object.h"
-
-#include <dbus/dbus-glib.h>
 
 G_DEFINE_TYPE(GMediaDB, gmediadb, G_TYPE_OBJECT)
 
@@ -51,8 +40,7 @@ struct _GMediaDBPrivate {
 
     gchar *mtype;
     gchar *fpath;
-
-    sem_t *fm, *am;
+    int fd;
 
     GStringChunk *sc;
 };
@@ -95,14 +83,15 @@ gmediadb_finalize (GObject *object)
         self->priv->mo_proxy = NULL;
     }
 
+    if (self->priv->mo) {
+        g_object_unref (self->priv->mo);
+        self->priv->mo = NULL;
+    }
+
     g_hash_table_destroy (self->priv->table);
     self->priv->table = NULL;
 
-    sem_close (self->priv->fm);
-    self->priv->fm = NULL;
-
-    sem_close (self->priv->am);
-    self->priv->am = NULL;
+    close (self->priv->fd);
 
     if (self->priv->db_proxy) {
         g_object_unref (self->priv->db_proxy);
@@ -120,7 +109,7 @@ gmediadb_finalize (GObject *object)
     g_free (self->priv->fpath);
     self->priv->fpath = NULL;
 
-    g_string_chunk_clear (self->priv->sc);
+    g_string_chunk_free (self->priv->sc);
     self->priv->sc = NULL;
 
     G_OBJECT_CLASS (gmediadb_parent_class)->finalize (object);
@@ -174,47 +163,27 @@ gmediadb_new (const gchar *mediatype)
 
     self->priv->fpath = g_strdup_printf ("%s/gmediadb/%s.db", g_get_user_config_dir (), self->priv->mtype);
 
-    gchar *astr = g_strdup_printf ("/gmediadb.%s.A", self->priv->mtype);
-    gchar *fstr = g_strdup_printf ("/gmediadb.%s.F", self->priv->mtype);
-
-    if (self->priv->mo) {
-        sem_unlink (astr);
-        sem_unlink (fstr);
-
-        self->priv->am = sem_open (astr, O_CREAT, 0644, 1);
-        self->priv->fm = sem_open (fstr, O_CREAT, 0644, 1);
-    } else {
-        self->priv->am = sem_open (astr, 0);
-        self->priv->fm = sem_open (fstr, 0);
-    }
-
-    g_free (fstr);
-    g_free (astr);
-
-    sem_wait (self->priv->am);
+    self->priv->fd = open (self->priv->fpath, O_CREAT | O_RDONLY, 0644);
+    flock (self->priv->fd, LOCK_EX);
 
     if (self->priv->mo_proxy) {
         dbus_g_proxy_call (self->priv->mo_proxy, "flush_store", NULL,
             G_TYPE_INVALID, G_TYPE_INVALID);
     }
 
-    int fd = open (self->priv->fpath, O_CREAT | O_RDONLY, 0644);
-    if (fd != -1) {
+    if (self->priv->fd != -1) {
         GHashTable *info;
         gint rid;
-        while ((info = read_entry (fd, &rid, self->priv->sc)) != NULL) {
+        while ((info = read_entry (self->priv->fd, &rid, self->priv->sc)) != NULL) {
             gint *id = g_new0 (gint, 1);
             *id = rid;
             g_hash_table_insert (self->priv->table, id, info);
         }
 
-
-        close (fd);
+        flock (self->priv->fd, LOCK_UN);
     } else {
         g_print ("Init Error Occured\n");
     }
-
-    sem_post (self->priv->am);
 
     return self;
 }
@@ -330,7 +299,7 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
             g_string_chunk_insert_const (self->priv->sc, vals[i]));
     }
 
-    sem_wait (self->priv->am);
+    flock (self->priv->fd, LOCK_EX);
 
     gint *nid = g_new0 (gint, 1);
     *nid = 1;
@@ -359,7 +328,7 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
         media_object_add_entry (self->priv->mo, *nid, nentry, NULL);
     }
 
-    sem_post (self->priv->am);
+    flock (self->priv->fd, LOCK_UN);
 
     return TRUE;
 }
@@ -380,7 +349,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
             g_string_chunk_insert_const (self->priv->sc, vals[i]));
     }
 
-    sem_wait (self->priv->am);
+    flock (self->priv->fd, LOCK_EX);
 
     if (self->priv->mo_proxy) {
         GError *err = NULL;
@@ -395,7 +364,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
         media_object_update_entry (self->priv->mo, id, entry, NULL);
     }
 
-    sem_post (self->priv->am);
+    flock (self->priv->fd, LOCK_UN);
 
     return TRUE;
 }
@@ -407,7 +376,7 @@ gmediadb_remove_entry (GMediaDB *self, guint id)
         return FALSE;
     }
 
-    sem_wait (self->priv->am);
+    flock (self->priv->fd, LOCK_EX);
 
     if (self->priv->mo_proxy) {
         if (!dbus_g_proxy_call (self->priv->mo_proxy, "remove_entry", NULL,
@@ -420,7 +389,7 @@ gmediadb_remove_entry (GMediaDB *self, guint id)
         media_object_remove_entry (self->priv->mo, id, NULL);
     }
 
-    sem_post (self->priv->am);
+    flock (self->priv->fd, LOCK_UN);
 
     return TRUE;
 }
@@ -660,8 +629,6 @@ media_removed_cb (gpointer obj, guint id, GMediaDB *self)
 void
 gmediadb_flush_cb (gpointer obj, GMediaDB *self)
 {
-    sem_wait (self->priv->fm);
-
     GList *tk = g_hash_table_get_keys (self->priv->table);
     GList *tv = g_hash_table_get_values (self->priv->table);
 
@@ -671,5 +638,5 @@ gmediadb_flush_cb (gpointer obj, GMediaDB *self)
         write_entry (fd, *((gint*) tk->data), (GHashTable*) tv->data);
     }
 
-    sem_post (self->priv->fm);
+    close (fd);
 }
