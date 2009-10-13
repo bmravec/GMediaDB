@@ -19,11 +19,6 @@
  *      MA 02110-1301, USA.
  */
 
-#include <sys/file.h>
-#include <sys/sem.h>
-#include <semaphore.h>
-
-#include "gmediadb.h"
 #include "media-object.h"
 #include "media-object-glue.h"
 
@@ -32,9 +27,6 @@ G_DEFINE_TYPE(MediaObject, media_object, G_TYPE_OBJECT)
 #define MEDIA_OBJECT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), MEDIA_OBJECT_TYPE, MediaObjectPrivate))
 
 struct _MediaObjectPrivate {
-    gchar *media_type;
-    GMediaDB *gdb;
-    gint ref_cnt;
     gboolean mod;
 };
 
@@ -72,8 +64,8 @@ media_object_class_init (MediaObjectClass *klass)
         G_TYPE_NONE, 1, G_TYPE_UINT);
 
     signal_flush = g_signal_new ("flush", G_TYPE_FROM_CLASS (klass),
-        G_SIGNAL_RUN_LAST, G_STRUCT_OFFSET (MediaObjectClass, flush),
-        NULL, NULL, g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+        G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__VOID,
+        G_TYPE_NONE, 0);
 
     dbus_g_object_type_install_info (MEDIA_OBJECT_TYPE,
                                      &dbus_glib_media_object_object_info);
@@ -84,35 +76,13 @@ media_object_init (MediaObject *self)
 {
     self->priv = MEDIA_OBJECT_GET_PRIVATE (self);
 
-    self->priv->ref_cnt = 0;
     self->priv->mod = FALSE;
 }
 
 MediaObject *
-media_object_new (DBusGConnection *conn, gchar *media_type, GMediaDB *gdb)
+media_object_new ()
 {
-    MediaObject *self = g_object_new (MEDIA_OBJECT_TYPE, NULL);
-
-    self->priv->gdb = gdb;
-    self->priv->media_type = g_strdup (media_type);
-
-    gchar *path = g_strdup_printf ("%s/%s", GMEDIADB_DBUS_PATH, media_type);
-    dbus_g_connection_register_g_object (conn, path, G_OBJECT (self));
-    g_free (path);
-
-    gchar *astr = g_strdup_printf ("/gmediadb.%s.A", self->priv->media_type);
-    sem_unlink (astr);
-    sem_t *am = sem_open (astr, O_CREAT, 0644, 1);
-    sem_close (am);
-    g_free (astr);
-
-    gchar *fstr = g_strdup_printf ("/gmediadb.%s.F", self->priv->media_type);
-    sem_unlink (fstr);
-    sem_t *fm = sem_open (fstr, O_CREAT, 0644, 1);
-    sem_close (fm);
-    g_free (fstr);
-
-    return self;
+    return g_object_new (MEDIA_OBJECT_TYPE, NULL);
 }
 
 gboolean
@@ -139,30 +109,6 @@ media_object_remove_entry (MediaObject *self, guint ident, GError **error)
     self->priv->mod = TRUE;
     g_signal_emit (G_OBJECT (self), signal_media_removed, 0, ident);
 
-    return TRUE;
-}
-
-gboolean
-media_object_ref (MediaObject *self,
-                  GError **error)
-{
-    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-
-    gmediadb_ref (priv->gdb);
-
-    priv->ref_cnt += 1;
-
-    return TRUE;
-}
-
-gboolean
-media_object_unref (MediaObject *self,
-                    GError **error)
-{
-    MediaObjectPrivate *priv = MEDIA_OBJECT_GET_PRIVATE (self);
-    priv->ref_cnt--;
-
-    gmediadb_unref (priv->gdb);
     return TRUE;
 }
 

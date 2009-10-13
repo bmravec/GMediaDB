@@ -1,3 +1,0 @@
-[D-BUS Service]
-Name=org.gnome.GMediaDB
-Exec=@bindir@/gmediadb

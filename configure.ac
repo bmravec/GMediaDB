@@ -1,6 +1,6 @@
 AC_PREREQ(2.59)
 AC_INIT([gmediadb],[0.6])
-AC_CONFIG_SRCDIR([gmediadb/gmediadb.c])
+AC_CONFIG_SRCDIR([src/gmediadb.c])
 AM_INIT_AUTOMAKE([dist-bzip2])
 CFLAGS="$CFLAGS -g"
 AC_PROG_CC
@@ -22,7 +22,6 @@ AC_SUBST(DBUSBINDINGTOOL)
 
 AC_OUTPUT([
 Makefile
-gmediadb/Makefile
-gmediadb/gmediadb.pc
-dbus-server/Makefile
+src/Makefile
+src/gmediadb.pc
 ])

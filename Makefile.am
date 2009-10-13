@@ -1,4 +1,4 @@
-SUBDIRS = dbus-server gmediadb
+SUBDIRS = src
 
 EXTRA_DIST = \
     autogen.sh
