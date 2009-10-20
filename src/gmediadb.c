@@ -161,6 +161,12 @@ gmediadb_new (const gchar *mediatype)
 
     gmediadb_dbus_connect (self);
 
+    gchar *path = g_strdup_printf ("%s/gmediadb/", g_get_user_config_dir ());
+    if (!g_file_test (path, G_FILE_TEST_EXISTS)) {
+        g_mkdir (path, 0700);
+    }
+    g_free (path);
+
     self->priv->fpath = g_strdup_printf ("%s/gmediadb/%s.db", g_get_user_config_dir (), self->priv->mtype);
 
     self->priv->fd = open (self->priv->fpath, O_CREAT | O_RDONLY, 0644);
