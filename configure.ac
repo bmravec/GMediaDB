@@ -1,8 +1,7 @@
 AC_PREREQ(2.59)
-AC_INIT([gmediadb],[0.6])
+AC_INIT([gmediadb],[0.7])
 AC_CONFIG_SRCDIR([src/gmediadb.c])
 AM_INIT_AUTOMAKE([dist-bzip2])
-CFLAGS="$CFLAGS -g"
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
