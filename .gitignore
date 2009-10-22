@@ -9,6 +9,7 @@ configure
 *.o
 *.la
 *.lo
+*.so
 aclocal.m4
 autom4te.cache
 gmediadb
