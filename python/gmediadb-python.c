@@ -1,23 +1,31 @@
 #include <Python.h>
 
-static PyObject*
-pygmediadb_add_entry (PyObject *self, PyObject *args)
-{
-    int a, b;
+#include <glib.h>
 
-    if (!PyArg_ParseTuple (args, "ii", &a, &b)) {
-        return NULL;
-    }
-
-    return Py_BuildValue ("i", a + b);
-}
+#include "gmediadb-GMediaDB.h"
 
 static PyMethodDef gmediadb_methods[] = {
-    { "add_entry", (PyCFunction) pygmediadb_add_entry, METH_VARARGS, NULL },
+    { NULL }  /* Sentinel */
 };
 
+#ifndef PyMODINIT_FUNC /* declarations for DLL import/export */
+#define PyMODINIT_FUNC void
+#endif
+
 PyMODINIT_FUNC
-initgmediadb ()
+initgmediadb(void)
 {
-    Py_InitModule3 ("gmediadb", gmediadb_methods, "GMediaDB database module");
+    PyObject* m;
+
+    g_type_init ();
+
+    GMediaDBType.tp_new = PyType_GenericNew;
+    if (PyType_Ready (&GMediaDBType) < 0)
+        return;
+
+    m = Py_InitModule3 ("gmediadb", gmediadb_methods,
+                       "Example module that creates an extension type.");
+
+    Py_INCREF (&GMediaDBType);
+    PyModule_AddObject (m, "GMediaDB", (PyObject*) &GMediaDBType);
 }

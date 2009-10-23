@@ -23,4 +23,5 @@ AC_OUTPUT([
 Makefile
 src/Makefile
 src/gmediadb.pc
+python/Makefile
 ])
