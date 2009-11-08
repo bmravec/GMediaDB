@@ -350,9 +350,13 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
 
     gint i;
     for (i = 0; tags[i]; i++) {
-        g_hash_table_insert (entry,
-            g_string_chunk_insert_const (self->priv->sc, tags[i]),
-            g_string_chunk_insert_const (self->priv->sc, vals[i]));
+        if (vals[i]) {
+            g_hash_table_insert (entry,
+                g_string_chunk_insert_const (self->priv->sc, tags[i]),
+                g_string_chunk_insert_const (self->priv->sc, vals[i]));
+        } else {
+            g_hash_table_remove (entry, tags[i]);
+        }
     }
 
     flock (self->priv->fd, LOCK_EX);
@@ -610,6 +614,8 @@ media_updated_cb (gpointer obj, guint id, GHashTable *info, GMediaDB *self)
     if (!entry) {
         return;
     }
+
+    g_hash_table_remove_all (entry);
 
     for (; ki; ki = ki->next, vi = vi->next) {
         g_hash_table_insert (entry,
