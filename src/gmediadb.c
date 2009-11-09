@@ -194,37 +194,50 @@ gmediadb_new (const gchar *mediatype)
     return self;
 }
 
-gchar**
-gmediadb_get_tags (GMediaDB *self)
-{
-    g_print ("gmediadb_get_tags: stub\n");
-
-    return NULL;
-}
-
 GPtrArray*
 gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[])
 {
     GPtrArray *array = g_ptr_array_new ();
-    gint num_keys = 0;
-    while (tags[num_keys++]);
-    num_keys--;
 
     gint i, j;
     for (i = 0; i < ids->len; i++) {
+        gchar **entry;
         GHashTable *tentry = g_hash_table_lookup (self->priv->table, &g_array_index (ids, gint, i));
 
         if (!tentry) {
             continue;
         }
 
-        gchar **entry = g_new0 (gchar*, num_keys);
+        if (tags) {
+            gint num_keys = 0;
+            while (tags[num_keys++]);
+            num_keys--;
 
-        for (j = 0; j < num_keys; j++) {
-            if (!g_strcmp0 (tags[j], "id")) {
-                entry[j] = g_strdup_printf ("%d", g_array_index (ids, gint, i));
-            } else {
-                entry[j] = g_hash_table_lookup (tentry, tags[j]);
+            entry = g_new0 (gchar*, num_keys);
+
+            for (j = 0; j < num_keys; j++) {
+                if (!g_strcmp0 (tags[j], "id")) {
+                    entry[j] = g_strdup_printf ("%d", g_array_index (ids, gint, i));
+                } else {
+                    entry[j] = g_hash_table_lookup (tentry, tags[j]);
+                }
+            }
+        } else {
+            gint num_keys = g_hash_table_size (tentry);
+
+            entry = g_new0 (gchar*, num_keys * 2 + 3);
+
+            entry[0] = "id";
+            entry[1] = g_strdup_printf ("%d", g_array_index (ids, gint, i));
+
+            j = 2;
+
+            GHashTableIter iter;
+            gpointer key, val;
+            g_hash_table_iter_init (&iter, tentry);
+            while (g_hash_table_iter_next (&iter, &key, &val)) {
+                entry[j++] = (gchar*) key;
+                entry[j++] = (gchar*) val;
             }
         }
 
@@ -237,23 +250,43 @@ gmediadb_get_entries (GMediaDB *self, GArray *ids, gchar *tags[])
 gchar**
 gmediadb_get_entry (GMediaDB *self, guint id, gchar *tags[])
 {
-    gint num_keys = 0, j;
-    while (tags[num_keys++]);
-    num_keys--;
-
+    gchar **entry;
+    gint j;
     GHashTable *tentry = g_hash_table_lookup (self->priv->table, &id);
 
     if (!tentry) {
         return NULL;
     }
 
-    gchar **entry = g_new0 (gchar*, num_keys);
+    if (tags) {
+        gint num_keys = 0;
+        while (tags[num_keys++]);
+        num_keys--;
 
-    for (j = 0; j < num_keys; j++) {
-        if (!g_strcmp0 (tags[j], "id")) {
-            entry[j] = g_strdup_printf ("%d", id);
-        } else {
-            entry[j] = g_hash_table_lookup (tentry, tags[j]);
+        entry = g_new0 (gchar*, num_keys);
+
+        for (j = 0; j < num_keys; j++) {
+            if (!g_strcmp0 (tags[j], "id")) {
+                entry[j] = g_strdup_printf ("%d", id);
+            } else {
+                entry[j] = g_hash_table_lookup (tentry, tags[j]);
+            }
+        }
+    } else {
+        gint num_keys = g_hash_table_size (tentry);
+
+        entry = g_new0 (gchar*, num_keys * 2 + 3);
+
+        entry[0] = "id";
+        entry[1] = g_strdup_printf ("%d", id);
+        j = 2;
+
+        GHashTableIter iter;
+        gpointer key, val;
+        g_hash_table_iter_init (&iter, tentry);
+        while (g_hash_table_iter_next (&iter, &key, &val)) {
+            entry[j++] = (gchar*) key;
+            entry[j++] = (gchar*) val;
         }
     }
 
@@ -268,22 +301,42 @@ gmediadb_get_all_entries (GMediaDB *self, gchar *tags[])
 
     GPtrArray *array = g_ptr_array_new ();
 
-    while (tags[num_keys++]);
-    num_keys--;
-
     values = g_hash_table_get_values (self->priv->table);
     keys = g_hash_table_get_keys (self->priv->table);
 
     for (iter = values, i2 = keys; iter; iter = iter->next, i2 = i2->next) {
+        gchar **entry;
         GHashTable *tentry = (GHashTable*) iter->data;
 
-        gchar **entry = g_new0 (gchar*, num_keys);
+        if (tags) {
+            while (tags[num_keys++]);
+            num_keys--;
 
-        for (j = 0; j < num_keys; j++) {
-            if (!g_strcmp0 (tags[j], "id")) {
-                entry[j] = g_strdup_printf ("%d", *((gint*) i2->data));
-            } else {
-                entry[j] = g_hash_table_lookup (tentry, tags[j]);
+            entry = g_new0 (gchar*, num_keys);
+
+            for (j = 0; j < num_keys; j++) {
+                if (!g_strcmp0 (tags[j], "id")) {
+                    entry[j] = g_strdup_printf ("%d", *((gint*) i2->data));
+                } else {
+                    entry[j] = g_hash_table_lookup (tentry, tags[j]);
+                }
+            }
+        } else {
+            gint num_keys = g_hash_table_size (tentry);
+
+            entry = g_new0 (gchar*, num_keys * 2 + 3);
+
+            entry[0] = "id";
+            entry[1] = g_strdup_printf ("%d", *((gint*) i2->data));
+
+            j = 2;
+
+            GHashTableIter iter;
+            gpointer key, val;
+            g_hash_table_iter_init (&iter, tentry);
+            while (g_hash_table_iter_next (&iter, &key, &val)) {
+                entry[j++] = (gchar*) key;
+                entry[j++] = (gchar*) val;
             }
         }
 
