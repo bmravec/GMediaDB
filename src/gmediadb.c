@@ -404,7 +404,7 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *kvs[])
     }
 
     gint i;
-    for (i = 0; kvs[i]; i++) {
+    for (i = 0; kvs[i]; i += 2) {
         if (g_strcmp0 (kvs[i], "id")) {
             if (kvs[i+1]) {
                 g_hash_table_insert (entry,
