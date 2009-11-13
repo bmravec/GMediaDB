@@ -347,15 +347,17 @@ gmediadb_get_all_entries (GMediaDB *self, gchar *tags[])
 }
 
 gboolean
-gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
+gmediadb_add_entry (GMediaDB *self, gchar *kvs[])
 {
     GHashTable *nentry = g_hash_table_new (g_str_hash, g_str_equal);
 
     gint i;
-    for (i = 0; tags[i]; i++) {
-        g_hash_table_insert (nentry,
-            g_string_chunk_insert_const (self->priv->sc, tags[i]),
-            g_string_chunk_insert_const (self->priv->sc, vals[i]));
+    for (i = 0; kvs[i]; i += 2) {
+        if (g_strcmp0 (kvs[i], "id")) {
+            g_hash_table_insert (nentry,
+                g_string_chunk_insert_const (self->priv->sc, kvs[i]),
+                g_string_chunk_insert_const (self->priv->sc, kvs[i+1]));
+        }
     }
 
     flock (self->priv->fd, LOCK_EX);
@@ -393,7 +395,7 @@ gmediadb_add_entry (GMediaDB *self, gchar *tags[], gchar *vals[])
 }
 
 gboolean
-gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
+gmediadb_update_entry (GMediaDB *self, guint id, gchar *kvs[])
 {
     GHashTable *entry = g_hash_table_lookup (self->priv->table, &id);
 
@@ -402,13 +404,15 @@ gmediadb_update_entry (GMediaDB *self, guint id, gchar *tags[], gchar *vals[])
     }
 
     gint i;
-    for (i = 0; tags[i]; i++) {
-        if (vals[i]) {
-            g_hash_table_insert (entry,
-                g_string_chunk_insert_const (self->priv->sc, tags[i]),
-                g_string_chunk_insert_const (self->priv->sc, vals[i]));
-        } else {
-            g_hash_table_remove (entry, tags[i]);
+    for (i = 0; kvs[i]; i++) {
+        if (g_strcmp0 (kvs[i], "id")) {
+            if (kvs[i+1]) {
+                g_hash_table_insert (entry,
+                    g_string_chunk_insert_const (self->priv->sc, kvs[i]),
+                    g_string_chunk_insert_const (self->priv->sc, kvs[i+1]));
+            } else {
+                g_hash_table_remove (entry, kvs[i]);
+            }
         }
     }
 
